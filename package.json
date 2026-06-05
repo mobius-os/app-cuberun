@@ -15,6 +15,7 @@
   "scripts": {
     "start": "HOST=0.0.0.0 react-scripts start",
     "build": "react-scripts build",
+    "verify:mobius": "node tools/verify-mobius-package.mjs",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
