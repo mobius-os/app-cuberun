@@ -38,3 +38,21 @@ The development process will be detailed on my [website](https://adamkarlsten.co
 * Right: D, RightArrow
 
 Touch devices have on-screen controls.
+
+## Mobius package
+
+This fork includes a Mobius package:
+
+* `mobius.json` is the install manifest.
+* `index.jsx` is the Mobius wrapper.
+* `build/` is a prebuilt CubeRun static bundle served by Mobius under
+  `/app-assets/by-id/<app_id>/`.
+* `icon.png` is the Mobius home-screen icon.
+
+Install URL:
+
+`https://raw.githubusercontent.com/hamzamerzic/cuberun/main/mobius.json`
+
+When rebuilding the game, make sure the build output uses relative asset paths
+(`./static/...`), not `/cuberun/static/...`, so it works under any installed
+Mobius app id.

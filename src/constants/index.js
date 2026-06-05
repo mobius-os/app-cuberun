@@ -13,15 +13,38 @@ export const LEVEL_SIZE = 6
 export const LEFT_BOUND = (-PLANE_SIZE / 2) * 0.6
 export const RIGHT_BOUND = (PLANE_SIZE / 2) * 0.6
 
-export const CUBE_SIZE = 20
+// Gameplay knobs: edit these first when changing how CubeRun feels.
+export const GAMEPLAY = {
+  // Obstacles
+  cubeSize: 20,
+  cubeAmount: 60,
+  collisionRadius: 12,
+  obstacleRiseSpeed: 100,
 
-export const CUBE_AMOUNT = 60
+  // Speed / progression
+  initialGameSpeed: 0.8,
+  speedIncreasePerLevel: 0.2,
+  acceleration: 0.15,
 
-export const INITIAL_GAME_SPEED = 0.8
+  // Player movement
+  forwardSpeedScale: 165,
+  lateralSpeedScale: 165,
+  steeringAcceleration: 2,
+  maxHorizontalVelocity: 0.7,
 
-export const GAME_SPEED_MULTIPLIER = 0.2
+  // Track/walls
+  wallRadius: 40,
+}
 
-export const WALL_RADIUS = 40
+export const CUBE_SIZE = GAMEPLAY.cubeSize
+
+export const CUBE_AMOUNT = GAMEPLAY.cubeAmount
+
+export const INITIAL_GAME_SPEED = GAMEPLAY.initialGameSpeed
+
+export const GAME_SPEED_MULTIPLIER = GAMEPLAY.speedIncreasePerLevel
+
+export const WALL_RADIUS = GAMEPLAY.wallRadius
 
 export const COLORS = [
   {

@@ -40,6 +40,37 @@ function Music() {
 
   const introPlaying = useRef(true)
   const startCrossfade = useRef(false)
+  const pageActive = useRef(true)
+
+  const stopAllPlayers = () => {
+    for (const player of [introPlayer.current, themePlayer.current, drumPlayer.current]) {
+      if (player?.isPlaying) {
+        player.stop()
+      }
+    }
+    mutation.currentMusicLevel = 0
+  }
+
+  useEffect(() => {
+    const updatePageActive = () => {
+      pageActive.current = document.visibilityState !== 'hidden' && document.hasFocus()
+      if (!pageActive.current) stopAllPlayers()
+    }
+
+    updatePageActive()
+    document.addEventListener('visibilitychange', updatePageActive)
+    window.addEventListener('blur', updatePageActive)
+    window.addEventListener('focus', updatePageActive)
+    window.addEventListener('pagehide', stopAllPlayers)
+
+    return () => {
+      stopAllPlayers()
+      document.removeEventListener('visibilitychange', updatePageActive)
+      window.removeEventListener('blur', updatePageActive)
+      window.removeEventListener('focus', updatePageActive)
+      window.removeEventListener('pagehide', stopAllPlayers)
+    }
+  }, [])
 
   useEffect(() => {
     if (hasInteracted && musicEnabled) {
@@ -82,7 +113,7 @@ function Music() {
   }, [musicEnabled])
 
   useEffect(() => {
-    if (musicEnabled && !gameOver) {
+    if (musicEnabled && pageActive.current && !gameOver) {
       if (!introPlayer.current.isPlaying) {
         introPlayer.current.play()
         introPlaying.current = true
@@ -116,7 +147,7 @@ function Music() {
   }, [level])
 
   useFrame((state, delta) => {
-    if (musicEnabled) {
+    if (musicEnabled && pageActive.current) {
 
       if (audioAnalyzer.current) {
         const audioLevel = MathUtils.inverseLerp(0, 255, audioAnalyzer.current.getFrequencyData()[0])

@@ -2,7 +2,7 @@ import { Object3D } from 'three'
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 
-import { CUBE_AMOUNT, CUBE_SIZE, PLANE_SIZE, COLORS, WALL_RADIUS, LEVEL_SIZE, LEFT_BOUND, RIGHT_BOUND } from '../constants'
+import { CUBE_AMOUNT, CUBE_SIZE, PLANE_SIZE, COLORS, WALL_RADIUS, LEVEL_SIZE, LEFT_BOUND, RIGHT_BOUND, GAMEPLAY } from '../constants'
 import { useStore, mutation } from '../state/useStore'
 
 import randomInRange from '../util/randomInRange'
@@ -49,7 +49,7 @@ export default function InstancedCubes() {
           if (cube.x - ship.current.position.x > -15 || cube.x - ship.current.position.x < 15) {
             const distanceToShip = distance2D(ship.current.position.x, ship.current.position.z, cube.x, cube.z)
 
-            if (distanceToShip < 12) {
+            if (distanceToShip < GAMEPLAY.collisionRadius) {
               mutation.gameSpeed = 0
               mutation.gameOver = true
             }
@@ -69,10 +69,10 @@ export default function InstancedCubes() {
         }
 
         if (cube.y < CUBE_SIZE / 2) {
-          if (cube.y + delta * 100 > CUBE_SIZE / 2) {
+          if (cube.y + delta * GAMEPLAY.obstacleRiseSpeed > CUBE_SIZE / 2) {
             cube.y = CUBE_SIZE / 2
           } else {
-            cube.y += delta * 100
+            cube.y += delta * GAMEPLAY.obstacleRiseSpeed
           }
         }
       }

@@ -10,6 +10,7 @@ import engineTexture from '../textures/enginetextureflip.png'
 
 
 import { useStore, mutation } from '../state/useStore'
+import { GAMEPLAY } from '../constants'
 
 const v = new Vector3()
 
@@ -117,7 +118,7 @@ function ShipModel(props, { children }) {
   const innerConeScaleFactor = useRef(0.7)
 
   useFrame((state, delta) => {
-    const accelDelta = 1 * delta * 2 // 1.5
+    const accelDelta = 1 * delta * GAMEPLAY.steeringAcceleration
 
     const time = clock.getElapsedTime()
 
@@ -133,14 +134,14 @@ function ShipModel(props, { children }) {
     leftWingTrail.current.scale.y = medSine / 50
 
     // Forward Movement
-    ship.current.position.z -= mutation.gameSpeed * delta * 165
+    ship.current.position.z -= mutation.gameSpeed * delta * GAMEPLAY.forwardSpeedScale
 
 
     // Lateral Movement
     if (mutation.gameOver) {
       mutation.horizontalVelocity = 0
     }
-    ship.current.position.x += mutation.horizontalVelocity * delta * 165
+    ship.current.position.x += mutation.horizontalVelocity * delta * GAMEPLAY.lateralSpeedScale
 
     // Curving during turns
     ship.current.rotation.z = mutation.horizontalVelocity * 1.5
@@ -184,7 +185,7 @@ function ShipModel(props, { children }) {
 
     if (!mutation.gameOver && mutation.gameSpeed > 0) {
       if ((left && !right)) {
-        mutation.horizontalVelocity = Math.max(-0.7 /* -0.5 */, mutation.horizontalVelocity - accelDelta)
+        mutation.horizontalVelocity = Math.max(-GAMEPLAY.maxHorizontalVelocity, mutation.horizontalVelocity - accelDelta)
 
         // wing trail
         rightWingTrail.current.scale.x = fastSine / 30
@@ -194,7 +195,7 @@ function ShipModel(props, { children }) {
       }
 
       if ((!left && right)) {
-        mutation.horizontalVelocity = Math.min(0.7 /* 0.7 */, mutation.horizontalVelocity + accelDelta)
+        mutation.horizontalVelocity = Math.min(GAMEPLAY.maxHorizontalVelocity, mutation.horizontalVelocity + accelDelta)
 
         // wing trail
         leftWingTrail.current.scale.x = fastSine / 30
@@ -213,10 +214,10 @@ function ShipModel(props, { children }) {
       pointLight.current.intensity = 30 - (fastSine / 15)
 
       if (innerConeScaleFactor.current < 0.95) {
-        if (innerConeScaleFactor.current + 0.005 * delta * 165 > 0.95) {
+        if (innerConeScaleFactor.current + 0.005 * delta * GAMEPLAY.forwardSpeedScale > 0.95) {
           innerConeScaleFactor.current = 0.95
         } else {
-          innerConeScaleFactor.current += 0.005 * delta * 165
+          innerConeScaleFactor.current += 0.005 * delta * GAMEPLAY.forwardSpeedScale
         }
       }
     } else {

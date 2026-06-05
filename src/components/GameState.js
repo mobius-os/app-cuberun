@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 
 import { useStore, mutation } from '../state/useStore'
-import { INITIAL_GAME_SPEED, PLANE_SIZE, LEVEL_SIZE } from '../constants'
+import { INITIAL_GAME_SPEED, PLANE_SIZE, LEVEL_SIZE, GAMEPLAY } from '../constants'
 
 // this is supposedly a performance improvement
 const shipSelector = s => s.ship
@@ -35,7 +35,7 @@ export default function GameState() {
   useFrame((state, delta) => {
 
     // acceleration logic
-    const accelDelta = 1 * delta * 0.15
+    const accelDelta = 1 * delta * GAMEPLAY.acceleration
     if (gameStarted && !mutation.gameOver) {
       if (mutation.gameSpeed < mutation.desiredSpeed) {
         setIsSpeedingUp(true)
