@@ -51,7 +51,7 @@ This fork includes a Mobius package:
 
 Install URL:
 
-`https://raw.githubusercontent.com/hamzamerzic/cuberun/main/mobius.json`
+`https://raw.githubusercontent.com/mobius-os/app-cuberun/main/mobius.json`
 
 When rebuilding the game, make sure the build output uses relative asset paths
 (`./static/...`), not `/cuberun/static/...`, so it works under any installed

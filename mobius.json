@@ -5,7 +5,7 @@
   "description": "Neon 3D runner game packaged for Mobius as a durable static app.",
   "author": "Adam Karlsten, Mobius packaging by Hamza Merzic",
   "license": "MIT",
-  "homepage": "https://github.com/hamzamerzic/cuberun",
+  "homepage": "https://github.com/mobius-os/app-cuberun",
   "entry": "index.jsx",
   "icon": "icon.png",
   "offline_capable": false,
