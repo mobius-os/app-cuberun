@@ -1,13 +1,13 @@
 {
   "id": "cuberun",
   "name": "CubeRun",
-  "version": "1.0.0-mobius.4",
+  "version": "1.0.1-mobius.3",
   "description": "Neon 3D runner game packaged for Mobius as a durable static app.",
   "author": "Adam Karlsten, Mobius packaging by Hamza Merzic",
   "license": "MIT",
   "homepage": "https://github.com/mobius-os/app-cuberun",
   "entry": "index.jsx",
-  "icon": "public/logo512.png",
+  "icon": "icon.png",
   "offline_capable": false,
   "permissions": {
     "cross_app_access": "none",
