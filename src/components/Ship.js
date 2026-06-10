@@ -15,7 +15,10 @@ import { GAMEPLAY } from '../constants'
 const v = new Vector3()
 
 function ShipModel(props, { children }) {
-  const { nodes, materials } = useGLTF(shipModel, "https://www.gstatic.com/draco/versioned/decoders/1.4.0/")
+  // The bundled spaceship.gltf is uncompressed, so no DRACOLoader is needed.
+  // Passing `false` disables Draco decoding; the previous gstatic decoder URL
+  // was a dead, CSP-blocked reference that never loaded.
+  const { nodes, materials } = useGLTF(shipModel, false)
   // tie ship and camera ref to store to allow getting at them elsewhere
   const ship = useStore((s) => s.ship)
   const camera = useStore((s) => s.camera)
@@ -286,7 +289,8 @@ function ShipModel(props, { children }) {
 }
 
 
-useGLTF.preload(shipModel, "https://www.gstatic.com/draco/versioned/decoders/1.4.0/")
+// Uncompressed model — no DRACOLoader (see ShipModel above).
+useGLTF.preload(shipModel, false)
 
 function Loading() {
   return (

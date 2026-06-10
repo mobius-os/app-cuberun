@@ -40,5 +40,6 @@
   "devDependencies": {
     "postcss": "^7.0.39",
     "postcss-safe-parser": "^4.0.2"
-  }
+  },
+  "homepage": "."
 }

@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import { isMobile } from 'react-device-detect'
 import { addEffect } from '@react-three/fiber'
 
 import { useStore, mutation } from '../../state/useStore'
@@ -69,12 +68,24 @@ export default function Hud() {
     }
   }, [gameStarted, gameOver])
 
+  // Show on-screen steering controls whenever the device's primary pointer is
+  // coarse (touch). UA sniffing was wrong on tablets and desktop-touch and only
+  // ran once at mount; a (pointer: coarse) media query covers those cases and
+  // re-evaluates if the pointer capability changes (e.g. detachable keyboards).
   useEffect(() => {
-    if (isMobile) {
-      setShowControls(true)
-    } else {
-      setShowControls(false)
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return
     }
+    const mql = window.matchMedia('(pointer: coarse)')
+    const update = () => setShowControls(mql.matches)
+    update()
+    // Safari <14 only supports the deprecated addListener API.
+    if (mql.addEventListener) {
+      mql.addEventListener('change', update)
+      return () => mql.removeEventListener('change', update)
+    }
+    mql.addListener(update)
+    return () => mql.removeListener(update)
   }, [])
 
   useEffect(() => {
@@ -94,8 +105,8 @@ export default function Hud() {
       )}
       {showControls && (
         <div className="controls">
-          <button onTouchStart={() => setLeftPressed(true)} onTouchEnd={() => setLeftPressed(false)} className={`control control__left ${left ? 'control-active' : ''}`}>{'<'}</button>
-          <button onTouchStart={() => setRightPressed(true)} onTouchEnd={() => setRightPressed(false)} className={`control control__right ${right ? 'control-active' : ''}`}>{'>'}</button>
+          <button onTouchStart={() => setLeftPressed(true)} onTouchEnd={() => setLeftPressed(false)} onTouchCancel={() => setLeftPressed(false)} className={`control control__left ${left ? 'control-active' : ''}`}>{'<'}</button>
+          <button onTouchStart={() => setRightPressed(true)} onTouchEnd={() => setRightPressed(false)} onTouchCancel={() => setRightPressed(false)} className={`control control__right ${right ? 'control-active' : ''}`}>{'>'}</button>
         </div>
       )}
       <div className="bottomLeft">

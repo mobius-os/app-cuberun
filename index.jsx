@@ -17,48 +17,64 @@ async function probeAsset(url) {
   }
 }
 
-const DARK = '#10121f'
-
 const CSS = `
 @keyframes cr-spin { to { transform: rotate(360deg); } }
 .cr-root {
   position: relative; height: 100%; width: 100%; overflow: hidden;
-  background: ${DARK}; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); display: flex; align-items: center; justify-content: center;
 }
 .cr-frame {
   position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
-  display: block; background: ${DARK};
+  display: block; background: var(--bg);
   transition: opacity 0.25s ease;
 }
 .cr-overlay {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 16px; pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+/* The error branch needs to host a tappable Retry control, so it opts back
+   into pointer events (the spinner overlay stays pass-through). */
+.cr-overlay--error { pointer-events: auto; }
+/* mobius-ui: loading-state */
 .cr-spinner {
   width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.12);
-  border-top-color: rgba(255,255,255,0.7);
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   animation: cr-spin 0.9s linear infinite;
 }
-.cr-label {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px; color: rgba(255,255,255,0.55); letter-spacing: 0.02em;
+@media (prefers-reduced-motion: reduce) {
+  .cr-spinner { animation: none; }
 }
+.cr-label {
+  font-family: var(--font);
+  font-size: 14px; color: var(--muted); letter-spacing: 0.02em;
+}
+/* /mobius-ui */
+/* mobius-ui: error-panel */
 .cr-error-panel {
   max-width: 320px; padding: 28px 24px; border-radius: 14px;
-  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
-  text-align: center; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--border);
+  text-align: center;
 }
 .cr-error-title {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.8);
+  font-family: var(--font);
+  font-size: 15px; font-weight: 700; color: var(--text);
   margin-bottom: 10px; letter-spacing: -0.01em;
 }
 .cr-error-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px; line-height: 1.55; color: rgba(255,255,255,0.5);
+  font-family: var(--font);
+  font-size: 13px; line-height: 1.55; color: var(--muted);
 }
+.cr-retry {
+  margin-top: 18px; min-height: 44px; padding: 0 22px;
+  border: 0; border-radius: 10px; cursor: pointer;
+  background: var(--accent); color: var(--bg);
+  font-family: var(--font); font-size: 14px; font-weight: 600;
+}
+.cr-retry:hover { background: var(--accent-hover); }
+/* /mobius-ui */
 `
 
 export default function CubeRunApp({ appId }) {
@@ -67,10 +83,13 @@ export default function CubeRunApp({ appId }) {
   // 'probing' → 'loading' (probe passed, iframe mounted) → 'ready' (iframe onLoad)
   // 'missing' or 'error' replace the above on probe failure.
   const [phase, setPhase] = useState('probing')
+  // Bumping this key re-runs the probe effect — the Retry control's mechanism.
+  const [attempt, setAttempt] = useState(0)
   const iframeRef = useRef(null)
 
   useEffect(() => {
     let live = true
+    setPhase('probing')
     probeAsset(src).then((result) => {
       if (!live) return
       if (result === 'ok') {
@@ -80,7 +99,7 @@ export default function CubeRunApp({ appId }) {
       }
     })
     return () => { live = false }
-  }, [src])
+  }, [src, attempt])
 
   const showFrame = phase === 'loading' || phase === 'ready'
   const frameOpacity = phase === 'ready' ? 1 : 0
@@ -112,12 +131,23 @@ export default function CubeRunApp({ appId }) {
       )}
 
       {showError && (
-        <div className="cr-overlay">
+        <div className="cr-overlay cr-overlay--error">
           <div className="cr-error-panel" role="alert">
-            <div className="cr-error-title">Game assets missing</div>
-            <div className="cr-error-body">
-              Try reinstalling CubeRun from the App Store.
+            <div className="cr-error-title">
+              {phase === 'missing' ? 'Game assets missing' : "Couldn't load CubeRun"}
             </div>
+            <div className="cr-error-body">
+              {phase === 'missing'
+                ? 'Some files are missing. Retry, or reinstall CubeRun from the App Store.'
+                : 'Something went wrong reaching the game. Check your connection and try again.'}
+            </div>
+            <button
+              type="button"
+              className="cr-retry"
+              onClick={() => setAttempt((n) => n + 1)}
+            >
+              Retry
+            </button>
           </div>
         </div>
       )}
