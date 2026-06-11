@@ -4,17 +4,24 @@ import { useState, useEffect, useRef } from 'react'
 // tried first; if the server returns 405 (Method Not Allowed) a GET is used
 // instead. Returns 'ok', 'missing', or 'error'.
 async function probeAsset(url) {
-  try {
-    let res = await fetch(url, { method: 'HEAD' })
-    if (res.status === 405) {
-      res = await fetch(url, { method: 'GET' })
+  // The probe exists only to catch a hard 404 (missing assets) with a
+  // friendly panel. Anything ambiguous — timeout, SW interception, odd
+  // status — resolves 'ok' and lets the iframe itself be the real test:
+  // a wrapper must never be able to wedge the game behind a spinner.
+  const timeout = new Promise((resolve) => setTimeout(() => resolve('ok'), 3000))
+  const check = (async () => {
+    try {
+      let res = await fetch(url, { method: 'HEAD' })
+      if (res.status === 405 || res.status === 501) {
+        res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } })
+      }
+      if (res.status === 404) return 'missing'
+      return 'ok'
+    } catch {
+      return 'ok'
     }
-    if (res.ok) return 'ok'
-    if (res.status === 404) return 'missing'
-    return 'error'
-  } catch {
-    return 'error'
-  }
+  })()
+  return Promise.race([timeout, check])
 }
 
 const CSS = `
@@ -101,8 +108,16 @@ export default function CubeRunApp({ appId }) {
     return () => { live = false }
   }, [src, attempt])
 
+  // onLoad on a nested iframe has proven unreliable enough to wedge the
+  // spinner overlay over a perfectly working game. Belt-and-suspenders:
+  // once the iframe is mounted, drop the overlay after 5s no matter what.
+  useEffect(() => {
+    if (phase !== 'loading') return
+    const t = setTimeout(() => setPhase('ready'), 5000)
+    return () => clearTimeout(t)
+  }, [phase])
+
   const showFrame = phase === 'loading' || phase === 'ready'
-  const frameOpacity = phase === 'ready' ? 1 : 0
 
   const showSpinner = phase === 'probing' || phase === 'loading'
   const showError = phase === 'missing' || phase === 'error'
@@ -117,7 +132,6 @@ export default function CubeRunApp({ appId }) {
           title="CubeRun"
           src={src}
           className="cr-frame"
-          style={{ opacity: frameOpacity }}
           allow="autoplay; fullscreen; gamepad"
           onLoad={() => setPhase('ready')}
         />
