@@ -100,6 +100,25 @@ export default function CubeRunApp({ appId }) {
     ? `/app-assets/by-id/${appId}/index.html?${ASSET_BUST}`
     : `/app-assets/cuberun/index.html?${ASSET_BUST}`
 
+  // Ask the shell to hide its top bar so the game fills the whole screen,
+  // including under the camera notch (the shell switches the iOS status bar
+  // to translucent and drops its header). Released on unmount so leaving the
+  // game restores normal chrome.
+  useEffect(() => {
+    const post = (value) => {
+      try {
+        window.parent.postMessage(
+          { type: 'moebius:immersive', value, appId },
+          window.location.origin,
+        )
+      } catch {
+        /* not embedded in the shell (standalone /a/cuberun) — no-op */
+      }
+    }
+    post(true)
+    return () => post(false)
+  }, [appId])
+
   // 'probing' → 'loading' (probe passed, iframe mounted) → 'ready' (iframe onLoad)
   // 'missing' or 'error' replace the above on probe failure.
   const [phase, setPhase] = useState('probing')
