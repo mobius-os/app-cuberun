@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 
-// Probe the asset index.html before mounting the iframe. A HEAD request is
-// tried first; if the server returns 405 (Method Not Allowed) a GET is used
-// instead. Returns 'ok', 'missing', or 'error'.
+// Cache-bust key for the asset entry document. Mobius's 2026-06-12
+// /app-assets caching change (ETag/304 + Range/206) let this wrapper's old
+// probe — a 'Range: bytes=0-0' GET — poison the browser HTTP cache and the
+// service worker cache under the bare index.html URL: later full GETs
+// revalidated 304 and got served the stored 1-byte body as a 200, so the
+// iframe rendered a one-character document (black screen). A fresh query key
+// sidesteps every poisoned entry already on devices without needing client
+// caches cleared. Bump it only if this URL ever needs re-keying again.
+const ASSET_BUST = 'v=20260612'
+
+// Probe the asset index.html before mounting the iframe. Returns 'ok',
+// 'missing', or 'error'.
 async function probeAsset(url) {
   // The probe exists only to catch a hard 404 (missing assets) with a
   // friendly panel. Anything ambiguous — timeout, SW interception, odd
@@ -11,10 +20,12 @@ async function probeAsset(url) {
   const timeout = new Promise((resolve) => setTimeout(() => resolve('ok'), 3000))
   const check = (async () => {
     try {
-      let res = await fetch(url, { method: 'HEAD' })
-      if (res.status === 405 || res.status === 501) {
-        res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } })
-      }
+      // Plain GET, never HEAD-then-Range: the server 405s HEAD, and the
+      // 'Range: bytes=0-0' fallback is what poisoned the HTTP cache with a
+      // 1-byte body once the server grew 206 support (see ASSET_BUST note).
+      // 'no-store' keeps the probe itself out of the HTTP cache; the ~2.5KB
+      // body is discarded — only the status matters.
+      const res = await fetch(url, { method: 'GET', cache: 'no-store' })
       if (res.status === 404) return 'missing'
       return 'ok'
     } catch {
@@ -85,7 +96,9 @@ const CSS = `
 `
 
 export default function CubeRunApp({ appId }) {
-  const src = appId ? `/app-assets/by-id/${appId}/index.html` : '/app-assets/cuberun/index.html'
+  const src = appId
+    ? `/app-assets/by-id/${appId}/index.html?${ASSET_BUST}`
+    : `/app-assets/cuberun/index.html?${ASSET_BUST}`
 
   // 'probing' → 'loading' (probe passed, iframe mounted) → 'ready' (iframe onLoad)
   // 'missing' or 'error' replace the above on probe failure.
