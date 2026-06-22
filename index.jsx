@@ -88,7 +88,7 @@ const CSS = `
 .cr-retry {
   margin-top: 18px; min-height: 44px; padding: 0 22px;
   border: 0; border-radius: 10px; cursor: pointer;
-  background: var(--accent); color: var(--bg);
+  background: var(--accent); color: var(--accent-fg);
   font-family: var(--font); font-size: 14px; font-weight: 600;
 }
 .cr-retry:hover { background: var(--accent-hover); }
@@ -166,6 +166,7 @@ export default function CubeRunApp({ appId }) {
           className="cr-frame"
           allow="autoplay; fullscreen; gamepad"
           onLoad={() => setPhase('ready')}
+          onError={() => setPhase('error')}
         />
       )}
 
