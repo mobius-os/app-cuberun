@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <link rel="icon" href="%PUBLIC_URL%/favicon.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="Avoid the cubes!" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
@@ -20,6 +20,29 @@
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
   <!-- For August -->
+  <script>
+    // Embedded in Möbius the shell hides its own bar for immersive games, but
+    // on Android the OS status bar stays (Möbius is a display:standalone PWA),
+    // so the game can't reach the notch. Drop the status bar at runtime with
+    // the Fullscreen API, which needs a user gesture: request on the first tap
+    // and re-request after any system-gesture exit. Skipped when the game was
+    // launched already-fullscreen (installed CubeRun's manifest is
+    // display:fullscreen) and when not embedded (CubeRun's own hosting). The
+    // Möbius shell calls exitFullscreen() when the game is left. Harmless where
+    // unsupported (iOS Safari) — the promise just rejects.
+    (function () {
+      if (window.top === window.self) return;
+      if (window.matchMedia &&
+          window.matchMedia('(display-mode: fullscreen)').matches) return;
+      function go() {
+        if (!document.fullscreenElement &&
+            document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(function () {});
+        }
+      }
+      window.addEventListener('pointerdown', go, { passive: true });
+    })();
+  </script>
 </body>
 
 </html>
