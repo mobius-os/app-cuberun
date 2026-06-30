@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react'
 // iframe rendered a one-character document (black screen). A fresh query key
 // sidesteps every poisoned entry already on devices without needing client
 // caches cleared. Bump it only if this URL ever needs re-keying again.
-const ASSET_BUST = 'v=20260612'
+const ASSET_BUST = 'v=20260630'
 
 // Probe the asset index.html before mounting the iframe. Returns 'ok',
 // 'missing', or 'error'.

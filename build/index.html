@@ -45,7 +45,7 @@
       tryFs(function () { return document.documentElement; }, 'LOCAL', null);
     });
   }
-  window.addEventListener('pointerdown', reqFs, { capture: true, passive: true });
+  ['pointerdown', 'touchstart', 'click'].forEach(function (t) { window.addEventListener(t, reqFs, { capture: true, passive: true }); });
 })();
 </script>
 </body></html>
