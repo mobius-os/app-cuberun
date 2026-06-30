@@ -1,48 +1,27 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"/><link rel="icon" href="./favicon.png"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#000000"/><meta name="description" content="Avoid the cubes!"/><link rel="apple-touch-icon" href="./logo192.png"/><link rel="manifest" href="./manifest.json"/><link rel="preload" href="./fonts.css" as="style" onload='this.onload=null,this.rel="stylesheet"'><link rel="preload" href="./fonts/commando.ttf" as="font" type="font/ttf" crossorigin><link rel="preload" href="./fonts/Road_Rage.otf" as="font" type="font/otf" crossorigin><link rel="prefetch" as="image" href="./cuberun-logo.png"><title>CubeRun</title><link href="./static/css/main.4861ccff.chunk.css" rel="stylesheet"></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div><script>!function(e){function r(r){for(var n,l,f=r[0],i=r[1],a=r[2],p=0,s=[];p<f.length;p++)l=f[p],Object.prototype.hasOwnProperty.call(o,l)&&o[l]&&s.push(o[l][0]),o[l]=0;for(n in i)Object.prototype.hasOwnProperty.call(i,n)&&(e[n]=i[n]);for(c&&c(r);s.length;)s.shift()();return u.push.apply(u,a||[]),t()}function t(){for(var e,r=0;r<u.length;r++){for(var t=u[r],n=!0,f=1;f<t.length;f++){var i=t[f];0!==o[i]&&(n=!1)}n&&(u.splice(r--,1),e=l(l.s=t[0]))}return e}var n={},o={1:0},u=[];function l(r){if(n[r])return n[r].exports;var t=n[r]={i:r,l:!1,exports:{}};return e[r].call(t.exports,t,t.exports,l),t.l=!0,t.exports}l.m=e,l.c=n,l.d=function(e,r,t){l.o(e,r)||Object.defineProperty(e,r,{enumerable:!0,get:t})},l.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},l.t=function(e,r){if(1&r&&(e=l(e)),8&r)return e;if(4&r&&"object"==typeof e&&e&&e.__esModule)return e;var t=Object.create(null);if(l.r(t),Object.defineProperty(t,"default",{enumerable:!0,value:e}),2&r&&"string"!=typeof e)for(var n in e)l.d(t,n,function(r){return e[r]}.bind(null,n));return t},l.n=function(e){var r=e&&e.__esModule?function(){return e.default}:function(){return e};return l.d(r,"a",r),r},l.o=function(e,r){return Object.prototype.hasOwnProperty.call(e,r)},l.p="./";var f=this.webpackJsonpcubeworld=this.webpackJsonpcubeworld||[],i=f.push.bind(f);f.push=r,f=f.slice();for(var a=0;a<f.length;a++)r(f[a]);var c=i;t()}([])</script><script src="./static/js/2.a210c4fd.chunk.js"></script><script src="./static/js/main.1cf22dcf.chunk.js"></script>
 <script>
 (function () {
-  // TEMPORARY on-screen diagnostic for Android notch fullscreen. On first input
-  // (capture-phase, so the game's START/steering can't eat it) we try to take
-  // the TOP document fullscreen (all Mobius frames are same-origin; the top doc
-  // carries viewport-fit=cover) and, if that throws OR rejects, fall back to
-  // this game frame. Every attempt prints its exact error. The wrapping readout
-  // is removed once we've diagnosed the device.
+  // Cover the Android display cutout on the first user gesture by taking the
+  // TOP document fullscreen — all Mobius frames are same-origin, and the shell /
+  // standalone page carry viewport-fit=cover, which is what makes Android paint
+  // content into the cutout. Falls back to fullscreening this game frame. The
+  // Fullscreen API is gesture-gated, so this can only fire on a tap, never on
+  // load; no-op on iOS and when already (launched) fullscreen.
   if (window.top === window.self) return;
   var mq = window.matchMedia;
   if (mq && mq('(display-mode: fullscreen)').matches) return;
-
-  var lines = [];
-  var badge = document.createElement('div');
-  badge.style.cssText = 'position:fixed;top:34%;left:6px;right:6px;z-index:2147483647;background:rgba(0,0,0,.82);color:#39ff14;font:12px/1.45 monospace;padding:6px 8px;pointer-events:none;white-space:pre-wrap;word-break:break-word;border-radius:6px';
   function topDoc(){ try { return window.top.document; } catch (e) { return null; } }
-  function topSafeTop(){
-    var d = topDoc(); if (!d || !d.body) return '?';
-    try {
-      var p = d.getElementById('__sat');
-      if (!p){ p = d.createElement('div'); p.id = '__sat'; p.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top)'; d.body.appendChild(p); }
-      return window.top.getComputedStyle(p).paddingTop;
-    } catch (e) { return 'err'; }
-  }
   function fsOn(){ try { var d = topDoc(); return !!(d && d.fullscreenElement) || !!document.fullscreenElement; } catch (e) { return !!document.fullscreenElement; } }
-  function dm(){ return (mq && mq('(display-mode: fullscreen)').matches) ? 'fs' : (mq && mq('(display-mode: standalone)').matches) ? 'standalone' : 'browser'; }
-  function render(){ badge.textContent = 'FS:' + (fsOn() ? 1 : 0) + '  ' + window.innerWidth + 'x' + window.innerHeight + '  dm:' + dm() + '  topSafeTop:' + topSafeTop() + '\n' + lines.join('\n'); }
-  function log(s){ lines.push(s); if (lines.length > 6) lines.shift(); render(); }
-  function mount(){ if (document.body && !badge.parentNode){ document.body.appendChild(badge); log('ready - tap to fullscreen'); } }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
-  document.addEventListener('fullscreenchange', function () { render(); });
-  window.addEventListener('resize', function () { render(); });
-  function tryFs(getEl, label, next){
-    var el;
-    try { el = getEl(); } catch (e) { log(label + ': access-throw ' + (e && e.name)); next && next(); return; }
-    if (!el || !el.requestFullscreen) { log(label + ': no-el'); next && next(); return; }
-    var p;
-    try { p = el.requestFullscreen(); } catch (e) { log(label + ': call-throw ' + (e && e.name) + ' "' + (e && e.message || '') + '"'); next && next(); return; }
-    p.then(function () { log(label + ': OK'); render(); }).catch(function (e) { log(label + ': rej ' + (e && e.name) + ' "' + (e && e.message || '') + '"'); next && next(); });
+  function tryFs(getEl, next){
+    var el; try { el = getEl(); } catch (e) { next && next(); return; }
+    if (!el || !el.requestFullscreen) { next && next(); return; }
+    var p; try { p = el.requestFullscreen(); } catch (e) { next && next(); return; }
+    if (p && p.catch) p.catch(function () { next && next(); });
   }
   function reqFs(){
-    if (fsOn()) { log('alreadyFS'); return; }
-    tryFs(function () { var d = topDoc(); return d && d.documentElement; }, 'TOP', function () {
-      tryFs(function () { return document.documentElement; }, 'LOCAL', null);
+    if (fsOn()) return;
+    tryFs(function () { var d = topDoc(); return d && d.documentElement; }, function () {
+      tryFs(function () { return document.documentElement; }, null);
     });
   }
   ['pointerdown', 'touchstart', 'click'].forEach(function (t) { window.addEventListener(t, reqFs, { capture: true, passive: true }); });
