@@ -21,26 +21,61 @@
   <div id="root"></div>
   <!-- For August -->
   <script>
-    // Embedded in Möbius the shell hides its own bar for immersive games, but
-    // on Android the OS status bar stays (Möbius is a display:standalone PWA),
-    // so the game can't reach the notch. Drop the status bar at runtime with
-    // the Fullscreen API, which needs a user gesture: request on the first tap
-    // and re-request after any system-gesture exit. Skipped when the game was
-    // launched already-fullscreen (installed CubeRun's manifest is
-    // display:fullscreen) and when not embedded (CubeRun's own hosting). The
-    // Möbius shell calls exitFullscreen() when the game is left. Harmless where
-    // unsupported (iOS Safari) — the promise just rejects.
+    // Cover the Android display cutout (notch) by taking the TOP document
+    // fullscreen on first input. All Möbius frames are same-origin, so the game
+    // fullscreens window.top.documentElement rather than this nested game frame:
+    // Android only paints the cutout when the *presented top document* has
+    // viewport-fit=cover, which the Möbius shell AND the standalone page both
+    // set. Capture-phase so the game's own START/steering handlers can't
+    // swallow the gesture. Falls back to local-frame fullscreen. The little
+    // readout is a TEMPORARY diagnostic (FS state, viewport size, top-document
+    // safe-area-inset = whether Chrome exposes the cutout) — removed once
+    // confirmed.
     (function () {
       if (window.top === window.self) return;
-      if (window.matchMedia &&
-          window.matchMedia('(display-mode: fullscreen)').matches) return;
-      function go() {
-        if (!document.fullscreenElement &&
-            document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen().catch(function () {});
-        }
+      var mq = window.matchMedia;
+      if (mq && mq('(display-mode: fullscreen)').matches) return;
+
+      var badge = document.createElement('div');
+      badge.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;background:rgba(0,0,0,.72);color:#39ff14;font:11px/1.3 monospace;padding:3px 6px;pointer-events:none;white-space:pre;max-width:100vw';
+      function topDoc(){ try { return window.top.document; } catch (e) { return null; } }
+      function topSafeTop(){
+        var d = topDoc(); if (!d || !d.body) return '?';
+        try {
+          var p = d.getElementById('__sat');
+          if (!p) {
+            p = d.createElement('div'); p.id = '__sat';
+            p.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top)';
+            d.body.appendChild(p);
+          }
+          return window.top.getComputedStyle(p).paddingTop;
+        } catch (e) { return 'err'; }
       }
-      window.addEventListener('pointerdown', go, { passive: true });
+      function fsOn(){ try { var d = topDoc(); return !!(d && d.fullscreenElement) || !!document.fullscreenElement; } catch (e) { return !!document.fullscreenElement; } }
+      function upd(tag){
+        var dm = (mq && mq('(display-mode: fullscreen)').matches) ? 'fs'
+          : (mq && mq('(display-mode: standalone)').matches) ? 'standalone' : 'browser';
+        badge.textContent = 'FS:' + (fsOn() ? 1 : 0) + '  ' + window.innerWidth + 'x' + window.innerHeight +
+          '  dm:' + dm + '  topSafeTop:' + topSafeTop() + (tag ? ('  ' + tag) : '');
+      }
+      function mount(){ if (document.body && !badge.parentNode) { document.body.appendChild(badge); upd('init'); } }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+      document.addEventListener('fullscreenchange', function () { upd('fschange'); });
+      window.addEventListener('resize', function () { upd('resize'); });
+      function reqFs(){
+        try {
+          if (fsOn()) { upd('alreadyFS'); return; }
+          var d = topDoc();
+          var el = (d && d.documentElement) ? d.documentElement : document.documentElement;
+          if (!el.requestFullscreen) { upd('noAPI'); return; }
+          el.requestFullscreen().then(function () { upd('TOP-OK'); }).catch(function (err) {
+            var l = document.documentElement;
+            if (l.requestFullscreen) l.requestFullscreen().then(function () { upd('LOCAL-OK'); }).catch(function (e2) { upd('FAIL ' + (e2 && e2.name)); });
+            else upd('FAIL ' + (err && err.name));
+          });
+        } catch (e) { upd('THROW ' + (e && e.name)); }
+      }
+      window.addEventListener('pointerdown', reqFs, { capture: true, passive: true });
     })();
   </script>
 </body>
