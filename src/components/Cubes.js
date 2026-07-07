@@ -46,7 +46,7 @@ export default function InstancedCubes() {
     cubes.forEach((cube, i) => {
       if (ship.current) {
         if (cube.z - ship.current.position.z > -15) { // No need to run the rather expensive distance function if the ship is too far away
-          if (cube.x - ship.current.position.x > -15 || cube.x - ship.current.position.x < 15) {
+          if (Math.abs(cube.x - ship.current.position.x) < 15) {
             const distanceToShip = distance2D(ship.current.position.x, ship.current.position.z, cube.x, cube.z)
 
             if (distanceToShip < GAMEPLAY.collisionRadius) {

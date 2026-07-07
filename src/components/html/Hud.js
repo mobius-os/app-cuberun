@@ -51,13 +51,15 @@ export default function Hud() {
   }))
 
   useEffect(() => {
-    if (showControls) {
-      window.oncontextmenu = function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        return false;
-      }
+    if (!showControls) return
+
+    const preventContextMenu = (event) => {
+      event.preventDefault()
+      event.stopPropagation()
     }
+
+    window.addEventListener('contextmenu', preventContextMenu)
+    return () => window.removeEventListener('contextmenu', preventContextMenu)
   }, [showControls])
 
   useEffect(() => {
@@ -105,8 +107,28 @@ export default function Hud() {
       )}
       {showControls && (
         <div className="controls">
-          <button onTouchStart={() => setLeftPressed(true)} onTouchEnd={() => setLeftPressed(false)} onTouchCancel={() => setLeftPressed(false)} className={`control control__left ${left ? 'control-active' : ''}`}>{'<'}</button>
-          <button onTouchStart={() => setRightPressed(true)} onTouchEnd={() => setRightPressed(false)} onTouchCancel={() => setRightPressed(false)} className={`control control__right ${right ? 'control-active' : ''}`}>{'>'}</button>
+          <button
+            type="button"
+            aria-label="Steer left"
+            onPointerDown={() => setLeftPressed(true)}
+            onPointerUp={() => setLeftPressed(false)}
+            onPointerCancel={() => setLeftPressed(false)}
+            onPointerLeave={() => setLeftPressed(false)}
+            className={`control control__left ${left ? 'control-active' : ''}`}
+          >
+            {'<'}
+          </button>
+          <button
+            type="button"
+            aria-label="Steer right"
+            onPointerDown={() => setRightPressed(true)}
+            onPointerUp={() => setRightPressed(false)}
+            onPointerCancel={() => setRightPressed(false)}
+            onPointerLeave={() => setRightPressed(false)}
+            className={`control control__right ${right ? 'control-active' : ''}`}
+          >
+            {'>'}
+          </button>
         </div>
       )}
       <div className="bottomLeft">

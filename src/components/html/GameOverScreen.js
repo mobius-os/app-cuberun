@@ -1,19 +1,46 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 import cubeRunLogo from '../../textures/cuberun-logo.png'
 
 import '../../styles/gameMenu.css'
 
 import { useStore } from '../../state/useStore'
+import { normalizeHighScores, postToWrapper, readHighScores, writeHighScores } from '../../util/storage'
 
 const GameOverScreen = () => {
-  const previousScores = localStorage.getItem('highscores') ? JSON.parse(localStorage.getItem('highscores')) : [...Array(3).fill(0)]
   const [shown, setShown] = useState(false)
   const [opaque, setOpaque] = useState(false)
-  const [highScores, setHighscores] = useState(previousScores)
+  const [highScores, setHighscores] = useState(() => readHighScores())
+  const runStartedAt = useRef(null)
+  const processedGameOver = useRef(false)
 
   const gameOver = useStore(s => s.gameOver)
+  const gameStarted = useStore(s => s.gameStarted)
   const score = useStore(s => s.score)
+  const level = useStore(s => s.level)
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return
+      if (event.data?.type !== 'cuberun:highscores') return
+
+      const scores = writeHighScores(event.data.scores)
+      setHighscores(scores)
+    }
+
+    window.addEventListener('message', handleMessage)
+    postToWrapper({ type: 'cuberun:get_highscores' })
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
+
+  useEffect(() => {
+    if (gameStarted && !gameOver && runStartedAt.current == null) {
+      runStartedAt.current = Date.now()
+    }
+    if (!gameStarted) {
+      runStartedAt.current = null
+    }
+  }, [gameStarted, gameOver])
 
   useEffect(() => {
     let t
@@ -30,17 +57,39 @@ const GameOverScreen = () => {
   }, [gameOver])
 
   useEffect(() => {
-    if (gameOver) {
-      if (highScores.some(previousScore => score > previousScore)) {
-        const sortedScores = highScores.sort((a, b) => a - b)
-        sortedScores[0] = score.toFixed(0)
-        const resortedScores = sortedScores.sort((a, b) => b - a)
-
-        setHighscores(resortedScores)
-        localStorage.setItem('highscores', JSON.stringify(resortedScores))
-      }
+    if (!gameOver) {
+      processedGameOver.current = false
+      return
     }
-  }, [gameOver, highScores, score])
+    if (processedGameOver.current) return
+    processedGameOver.current = true
+
+    const currentScore = Math.round(score)
+    const previousScores = normalizeHighScores(highScores)
+    const previousBest = previousScores[0] || 0
+    const nextScores = normalizeHighScores([...previousScores, currentScore])
+    const improvedBest = currentScore > previousBest
+    const duration = runStartedAt.current
+      ? Math.max(0, Math.round((Date.now() - runStartedAt.current) / 1000))
+      : 0
+
+    setHighscores(nextScores)
+    writeHighScores(nextScores)
+    postToWrapper({ type: 'cuberun:set_highscores', scores: nextScores })
+    postToWrapper({
+      type: 'cuberun:event',
+      event: 'run_ended',
+      payload: { score: currentScore, level: level + 1, duration_s: duration },
+    })
+
+    if (improvedBest) {
+      postToWrapper({
+        type: 'cuberun:event',
+        event: 'high_score',
+        payload: { score: currentScore },
+      })
+    }
+  }, [gameOver, highScores, level, score])
 
   const handleRestart = () => {
     window.location.reload() // TODO: make a proper restart
@@ -61,7 +110,7 @@ const GameOverScreen = () => {
             {highScores.map((newScore, i) => (
               <div key={`${i}-${score}`} className="game__score-highscore">
                 <span className="game__score-number">{i + 1}</span>
-                <span style={{ textDecoration: score.toFixed(0) === newScore ? 'underline' : 'none' }} className="game__score-score">{newScore > 0 ? newScore : '-'}</span>
+                <span style={{ textDecoration: Math.round(score) === newScore ? 'underline' : 'none' }} className="game__score-score">{newScore > 0 ? newScore : '-'}</span>
               </div>
             ))}
           </div>

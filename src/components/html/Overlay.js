@@ -7,6 +7,7 @@ import Author from './Author'
 import '../../styles/gameMenu.css'
 
 import { useStore } from '../../state/useStore'
+import { postToWrapper, writeMusicEnabled } from '../../util/storage'
 
 const Overlay = () => {
   const [shown, setShown] = useState(true)
@@ -36,7 +37,7 @@ const Overlay = () => {
   }, [hasLoaded, opaque])
 
   useEffect(() => {
-    localStorage.setItem('musicEnabled', JSON.stringify(musicEnabled))
+    writeMusicEnabled(musicEnabled)
   }, [musicEnabled])
 
   useEffect(() => {
@@ -51,6 +52,11 @@ const Overlay = () => {
 
   const handleMusic = () => {
     enableMusic(!musicEnabled)
+    postToWrapper({
+      type: 'cuberun:event',
+      event: 'item_updated',
+      payload: { type: 'settings' },
+    })
   }
 
   return shown ? (

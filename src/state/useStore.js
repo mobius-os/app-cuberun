@@ -2,6 +2,8 @@ import { Color } from 'three'
 import { createRef } from 'react'
 import create from 'zustand'
 
+import { readMusicEnabled } from '../util/storage'
+
 const useStore = create((set, get) => {
 
   return {
@@ -11,7 +13,7 @@ const useStore = create((set, get) => {
     level: 0,
     gameOver: false,
     gameStarted: false,
-    musicEnabled: JSON.parse(localStorage.getItem('musicEnabled')) ?? false,
+    musicEnabled: readMusicEnabled(),
     isSpeedingUp: false,
     controls: {
       left: false,

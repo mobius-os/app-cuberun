@@ -1,5 +1,5 @@
 import { AudioListener, AudioLoader, AudioAnalyser } from 'three'
-import { useRef, useEffect, useState, Suspense } from 'react'
+import { useRef, useEffect, useState, Suspense, useCallback } from 'react'
 import { useLoader, useFrame } from '@react-three/fiber'
 import { MathUtils } from 'three'
 
@@ -39,7 +39,6 @@ function Music() {
   const drumVolume = useRef(0)
 
   const introPlaying = useRef(true)
-  const startCrossfade = useRef(false)
   const pageActive = useRef(true)
 
   const stopAllPlayers = () => {
@@ -51,10 +50,54 @@ function Music() {
     mutation.currentMusicLevel = 0
   }
 
+  const startIntro = useCallback(() => {
+    if (!introPlayer.current) return
+    introPlayer.current.setLoop(true)
+    introPlayer.current.setVolume(introVolume.current)
+    if (!introPlayer.current.isPlaying) {
+      introPlayer.current.play()
+    }
+    introPlaying.current = true
+  }, [])
+
+  const startMainTheme = useCallback(() => {
+    if (!themePlayer.current || !drumPlayer.current) return
+    themePlayer.current.setLoop(true)
+    drumPlayer.current.setLoop(true)
+    themePlayer.current.setVolume(themeVolume.current)
+    drumPlayer.current.setVolume(drumVolume.current)
+    if (!themePlayer.current.isPlaying) {
+      themePlayer.current.play()
+    }
+    if (!drumPlayer.current.isPlaying) {
+      drumPlayer.current.play()
+    }
+    introPlaying.current = false
+  }, [])
+
+  const resumeCurrentPlayers = useCallback(() => {
+    if (!musicEnabled || !pageActive.current) return
+
+    if (gameStarted && !gameOver) {
+      if (introVolume.current > 0) startIntro()
+      startMainTheme()
+      return
+    }
+
+    if (!gameOver) {
+      startIntro()
+    }
+  }, [gameOver, gameStarted, musicEnabled, startIntro, startMainTheme])
+
   useEffect(() => {
     const updatePageActive = () => {
+      const wasActive = pageActive.current
       pageActive.current = document.visibilityState !== 'hidden' && document.hasFocus()
-      if (!pageActive.current) stopAllPlayers()
+      if (pageActive.current && !wasActive) {
+        resumeCurrentPlayers()
+      } else if (!pageActive.current) {
+        stopAllPlayers()
+      }
     }
 
     updatePageActive()
@@ -70,7 +113,7 @@ function Music() {
       window.removeEventListener('focus', updatePageActive)
       window.removeEventListener('pagehide', stopAllPlayers)
     }
-  }, [])
+  }, [resumeCurrentPlayers])
 
   useEffect(() => {
     if (hasInteracted && musicEnabled) {
@@ -114,9 +157,10 @@ function Music() {
 
   useEffect(() => {
     if (musicEnabled && pageActive.current && !gameOver) {
-      if (!introPlayer.current.isPlaying) {
-        introPlayer.current.play()
-        introPlaying.current = true
+      if (gameStarted) {
+        startMainTheme()
+      } else {
+        startIntro()
       }
     } else {
       if (introPlayer.current?.isPlaying) {
@@ -134,7 +178,7 @@ function Music() {
       return () => cam.remove(listener)
     }
 
-  }, [musicEnabled, introTheme, mainTheme, mainThemeDrums, gameStarted, gameOver, camera, listener])
+  }, [musicEnabled, introTheme, mainTheme, mainThemeDrums, gameStarted, gameOver, camera, listener, startIntro, startMainTheme])
 
   useEffect(() => {
     if (level > 0 && level % 2 === 0) {
@@ -153,23 +197,14 @@ function Music() {
         const audioLevel = MathUtils.inverseLerp(0, 255, audioAnalyzer.current.getFrequencyData()[0])
         mutation.currentMusicLevel = audioLevel
       }
-
-      // start playing main theme "on the beat" when game starts
-      if (gameStarted && !themePlayer.current.isPlaying) {
-        if (introPlayer.current.context.currentTime.toFixed(1) % 9.6 === 0) {
-          startCrossfade.current = true
-          themePlayer.current.play()
-          drumPlayer.current.play()
-          themePlayer.current.setVolume(0)
-          drumPlayer.current.setVolume(0)
-        }
+      if (gameStarted && !gameOver && (!themePlayer.current.isPlaying || !drumPlayer.current.isPlaying)) {
+        startMainTheme()
       }
 
       // crossfade intro music to main theme when game starts
       if (gameStarted && !gameOver && themeVolume.current < 1) {
         if (!themePlayer.current.isPlaying) {
-          themePlayer.current.play()
-          drumPlayer.current.play()
+          startMainTheme()
         }
 
         themeFilter.current.frequency.value += delta * 4000
