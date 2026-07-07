@@ -1,0 +1,65 @@
+import {
+  HIGH_SCORES_KEY,
+  LEGACY_HIGH_SCORES_KEY,
+  LEGACY_MUSIC_ENABLED_KEY,
+  MUSIC_ENABLED_KEY,
+  normalizeHighScores,
+  readHighScores,
+  readMusicEnabled,
+  writeHighScores,
+  writeMusicEnabled,
+} from './storage'
+
+function createStorage(initial = {}) {
+  const values = new Map(Object.entries(initial))
+  return {
+    getItem: jest.fn((key) => values.has(key) ? values.get(key) : null),
+    setItem: jest.fn((key, value) => values.set(key, value)),
+  }
+}
+
+describe('storage helpers', () => {
+  it('normalizes high scores to three descending numbers', () => {
+    expect(normalizeHighScores([10, '30.4', -2, 'bad', 20, 40])).toEqual([40, 30, 20])
+    expect(normalizeHighScores(null)).toEqual([0, 0, 0])
+  })
+
+  it('falls back for corrupt high-score values', () => {
+    const storage = createStorage({ [HIGH_SCORES_KEY]: 'not json' })
+
+    expect(readHighScores(storage)).toEqual([0, 0, 0])
+  })
+
+  it('reads legacy high scores without writing the bare key', () => {
+    const storage = createStorage({
+      [LEGACY_HIGH_SCORES_KEY]: JSON.stringify([100, 50, 10]),
+    })
+
+    expect(readHighScores(storage)).toEqual([100, 50, 10])
+    writeHighScores([150, 100, 50], storage)
+
+    expect(storage.setItem).toHaveBeenCalledWith(HIGH_SCORES_KEY, JSON.stringify([150, 100, 50]))
+    expect(storage.setItem).not.toHaveBeenCalledWith(LEGACY_HIGH_SCORES_KEY, expect.any(String))
+  })
+
+  it('falls back for corrupt music settings and writes only the namespaced key', () => {
+    const storage = createStorage({
+      [MUSIC_ENABLED_KEY]: 'bad',
+      [LEGACY_MUSIC_ENABLED_KEY]: 'also bad',
+    })
+
+    expect(readMusicEnabled(storage)).toBe(false)
+    writeMusicEnabled(true, storage)
+
+    expect(storage.setItem).toHaveBeenCalledWith(MUSIC_ENABLED_KEY, 'true')
+    expect(storage.setItem).not.toHaveBeenCalledWith(LEGACY_MUSIC_ENABLED_KEY, expect.any(String))
+  })
+
+  it('can read a valid legacy music setting during migration', () => {
+    const storage = createStorage({
+      [LEGACY_MUSIC_ENABLED_KEY]: 'true',
+    })
+
+    expect(readMusicEnabled(storage)).toBe(true)
+  })
+})

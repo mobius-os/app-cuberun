@@ -100,6 +100,8 @@
 
 .control {
   opacity: 0.3;
+  min-width: 44px;
+  min-height: 44px;
   padding-left: 2rem;
   padding-right: 2rem;
   color: #fe2079;
@@ -117,10 +119,16 @@
   user-select: none; /* Standard */
   box-shadow: 0 0 40px #fe2079;
   text-shadow: 0 0 40px #fe2079;
+  touch-action: none;
 }
 
 .control-active {
   opacity: 1;
+}
+
+.control:focus-visible {
+  outline: 2px solid #eee;
+  outline-offset: 4px;
 }
 
 @media screen and (max-width: 992px) {
