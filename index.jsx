@@ -155,6 +155,7 @@ export default function CubeRunApp({ appId }) {
   const [attempt, setAttempt] = useState(0)
   const iframeRef = useRef(null)
   const readySignaled = useRef(false)
+  const navHandlesRef = useRef(new Map())
 
   const postToFrame = useCallback((message) => {
     try {
@@ -231,13 +232,58 @@ export default function CubeRunApp({ appId }) {
         return
       }
 
+      if (data.type === 'cuberun:nav_open' && typeof data.label === 'string') {
+        if (navHandlesRef.current.has(data.label)) {
+          postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: true })
+          return
+        }
+
+        if (!window.mobius?.nav?.open) {
+          postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: false })
+          return
+        }
+
+        const handle = window.mobius.nav.open(data.label, () => {
+          navHandlesRef.current.delete(data.label)
+          postToFrame({ type: 'cuberun:nav_back', label: data.label })
+        })
+        navHandlesRef.current.set(data.label, handle)
+        Promise.resolve(handle.ready).then(
+          () => {
+            if (navHandlesRef.current.get(data.label) === handle) {
+              postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: true })
+            }
+          },
+          () => {
+            if (navHandlesRef.current.get(data.label) === handle) {
+              navHandlesRef.current.delete(data.label)
+              postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: false })
+            }
+          },
+        )
+        return
+      }
+
+      if (data.type === 'cuberun:nav_close' && typeof data.label === 'string') {
+        const handle = navHandlesRef.current.get(data.label)
+        navHandlesRef.current.delete(data.label)
+        try { handle?.close?.() } catch {}
+        return
+      }
+
       if (data.type === 'cuberun:event' && typeof data.event === 'string') {
         emitSignal(data.event, data.payload || {})
       }
     }
 
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      for (const handle of navHandlesRef.current.values()) {
+        try { handle?.close?.() } catch {}
+      }
+      navHandlesRef.current.clear()
+    }
   }, [loadHighScores, postToFrame])
 
   const showFrame = phase === 'loading' || phase === 'ready'

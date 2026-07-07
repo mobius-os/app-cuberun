@@ -7,6 +7,8 @@ import '../../styles/gameMenu.css'
 import { useStore } from '../../state/useStore'
 import { normalizeHighScores, postToWrapper, readHighScores, writeHighScores } from '../../util/storage'
 
+const GAME_OVER_NAV_LABEL = 'cuberun-game-over'
+
 const GameOverScreen = () => {
   const [shown, setShown] = useState(false)
   const [opaque, setOpaque] = useState(false)
@@ -49,10 +51,41 @@ const GameOverScreen = () => {
   }, [gameOver, opaque])
 
   useEffect(() => {
-    if (gameOver) {
-      setShown(true)
-    } else {
+    if (!gameOver) {
+      postToWrapper({ type: 'cuberun:nav_close', label: GAME_OVER_NAV_LABEL })
       setShown(false)
+      return
+    }
+
+    let live = true
+    let waitingForWrapper = true
+
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return
+      if (event.data?.label !== GAME_OVER_NAV_LABEL) return
+
+      if (event.data?.type === 'cuberun:nav_ready') {
+        waitingForWrapper = false
+        if (live) setShown(true)
+      }
+
+      if (event.data?.type === 'cuberun:nav_back') {
+        waitingForWrapper = false
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    postToWrapper({ type: 'cuberun:nav_open', label: GAME_OVER_NAV_LABEL })
+
+    const fallback = setTimeout(() => {
+      if (live && waitingForWrapper) setShown(true)
+    }, 250)
+
+    return () => {
+      live = false
+      clearTimeout(fallback)
+      window.removeEventListener('message', handleMessage)
     }
   }, [gameOver])
 
@@ -92,6 +125,7 @@ const GameOverScreen = () => {
   }, [gameOver, highScores, level, score])
 
   const handleRestart = () => {
+    postToWrapper({ type: 'cuberun:nav_close', label: GAME_OVER_NAV_LABEL })
     window.location.reload() // TODO: make a proper restart
   }
 
