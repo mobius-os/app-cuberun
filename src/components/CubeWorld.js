@@ -19,6 +19,7 @@ import GameState from './GameState'
 import GlobalColor from './GlobalColor'
 import Music from './Music'
 import Sound from './Sound'
+import VisibilityPause from './VisibilityPause'
 
 // HTML components
 import Overlay from './html/Overlay'
@@ -34,6 +35,7 @@ export default function CubeWorld({ color, bgColor }) {
       <Canvas gl={{ antialias: false, alpha: false }} mode="concurrent" dpr={[1, 1.5]} style={{ background: `${bgColor}` }}>
         <Suspense fallback={null}>
           <GameState />
+          <VisibilityPause />
           <Skybox />
           <directionalLight
             ref={directionalLight}
@@ -62,4 +64,3 @@ export default function CubeWorld({ color, bgColor }) {
     </>
   )
 }
-

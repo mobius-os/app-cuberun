@@ -121,7 +121,10 @@ function ShipModel(props, { children }) {
   const innerConeScaleFactor = useRef(0.7)
 
   useFrame((state, delta) => {
-    const accelDelta = 1 * delta * GAMEPLAY.steeringAcceleration
+    if (mutation.gamePaused) return
+
+    const frameDelta = Math.min(delta, 1 / 30)
+    const accelDelta = frameDelta * GAMEPLAY.steeringAcceleration
 
     const time = clock.getElapsedTime()
 
@@ -137,14 +140,14 @@ function ShipModel(props, { children }) {
     leftWingTrail.current.scale.y = medSine / 50
 
     // Forward Movement
-    ship.current.position.z -= mutation.gameSpeed * delta * GAMEPLAY.forwardSpeedScale
+    ship.current.position.z -= mutation.gameSpeed * frameDelta * GAMEPLAY.forwardSpeedScale
 
 
     // Lateral Movement
     if (mutation.gameOver) {
       mutation.horizontalVelocity = 0
     }
-    ship.current.position.x += mutation.horizontalVelocity * delta * GAMEPLAY.lateralSpeedScale
+    ship.current.position.x += mutation.horizontalVelocity * frameDelta * GAMEPLAY.lateralSpeedScale
 
     // Curving during turns
     ship.current.rotation.z = mutation.horizontalVelocity * 1.5
@@ -210,25 +213,25 @@ function ShipModel(props, { children }) {
 
     pointLight.current.intensity = 20 - (fastSine / 15)
 
-    outerConeExhaust.current.material.map.offset.y += 0.01 * (0.4 + mutation.gameSpeed) * delta * 165
-    coneExhaust.current.material.map.offset.y -= 0.01 * (0.4 + mutation.gameSpeed) * delta * 165
+    outerConeExhaust.current.material.map.offset.y += 0.01 * (0.4 + mutation.gameSpeed) * frameDelta * 165
+    coneExhaust.current.material.map.offset.y -= 0.01 * (0.4 + mutation.gameSpeed) * frameDelta * 165
 
     if (mutation.desiredSpeed > mutation.gameSpeed) {
       pointLight.current.intensity = 30 - (fastSine / 15)
 
       if (innerConeScaleFactor.current < 0.95) {
-        if (innerConeScaleFactor.current + 0.005 * delta * GAMEPLAY.forwardSpeedScale > 0.95) {
+        if (innerConeScaleFactor.current + 0.005 * frameDelta * GAMEPLAY.forwardSpeedScale > 0.95) {
           innerConeScaleFactor.current = 0.95
         } else {
-          innerConeScaleFactor.current += 0.005 * delta * GAMEPLAY.forwardSpeedScale
+          innerConeScaleFactor.current += 0.005 * frameDelta * GAMEPLAY.forwardSpeedScale
         }
       }
     } else {
       if (innerConeScaleFactor.current > 0.7) {
-        if (innerConeScaleFactor.current - 0.005 * delta * 165 < 0.7) {
+        if (innerConeScaleFactor.current - 0.005 * frameDelta * 165 < 0.7) {
           innerConeScaleFactor.current = 0.7
         } else {
-          innerConeScaleFactor.current -= 0.005 * delta * 165
+          innerConeScaleFactor.current -= 0.005 * frameDelta * 165
         }
       }
     }

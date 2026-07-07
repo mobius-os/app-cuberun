@@ -45,6 +45,7 @@ const mutation = {
   shouldShiftItems: false,
   currentMusicLevel: 0,
   currentLevelLength: 0,
+  gamePaused: false,
   globalColor: new Color()
 }
 
