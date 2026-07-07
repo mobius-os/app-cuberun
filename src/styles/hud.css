@@ -53,8 +53,8 @@
 
 .bottomLeft {
   position: absolute;
-  bottom: 2vh;
-  left: 4vh;
+  bottom: max(2vh, env(safe-area-inset-bottom));
+  left: max(4vh, env(safe-area-inset-left));
   transform: skew(0deg, -10deg);
   width: 200px;
   margin: 0;
@@ -89,12 +89,14 @@
 
 .controls {
   position: absolute;
-  width: 100vw;
+  left: 0;
+  right: 0;
+  width: auto;
   display: flex;
-  bottom: 2vh;
+  bottom: max(2vh, env(safe-area-inset-bottom));
   justify-content: space-between;
-  padding-left: 2vh;
-  padding-right: 2vh;
+  padding-left: max(2vh, env(safe-area-inset-left));
+  padding-right: max(2vh, env(safe-area-inset-right));
   z-index: 1001;
 }
 
@@ -133,7 +135,7 @@
 
 @media screen and (max-width: 992px) {
   .bottomLeft {
-    left: 2vh;
+    left: max(2vh, env(safe-area-inset-left));
   }
   
   .score__number {
@@ -153,7 +155,7 @@
   }
 
   .bottomLeft {
-    left: 2vh;
+    left: max(2vh, env(safe-area-inset-left));
   }
   .score__withcontrols {
    margin-bottom: 7rem;

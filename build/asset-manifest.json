@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "./static/css/main.41e6ce63.chunk.css",
-    "main.js": "./static/js/main.c7e31a58.chunk.js",
-    "main.js.map": "./static/js/main.c7e31a58.chunk.js.map",
+    "main.css": "./static/css/main.6f1b544c.chunk.css",
+    "main.js": "./static/js/main.deb7f73b.chunk.js",
+    "main.js.map": "./static/js/main.deb7f73b.chunk.js.map",
     "runtime-main.js": "./static/js/runtime-main.543a1102.js",
     "runtime-main.js.map": "./static/js/runtime-main.543a1102.js.map",
     "static/js/2.ef17f9a3.chunk.js": "./static/js/2.ef17f9a3.chunk.js",
     "static/js/2.ef17f9a3.chunk.js.map": "./static/js/2.ef17f9a3.chunk.js.map",
     "index.html": "./index.html",
-    "static/css/main.41e6ce63.chunk.css.map": "./static/css/main.41e6ce63.chunk.css.map",
+    "static/css/main.6f1b544c.chunk.css.map": "./static/css/main.6f1b544c.chunk.css.map",
     "static/js/2.ef17f9a3.chunk.js.LICENSE.txt": "./static/js/2.ef17f9a3.chunk.js.LICENSE.txt",
     "static/media/gameMenu.css": "./static/media/commando.68717231.ttf",
     "static/media/cuberun-logo.2a67aff7.png": "./static/media/cuberun-logo.2a67aff7.png",
@@ -26,7 +26,7 @@
   "entrypoints": [
     "static/js/runtime-main.543a1102.js",
     "static/js/2.ef17f9a3.chunk.js",
-    "static/css/main.41e6ce63.chunk.css",
-    "static/js/main.c7e31a58.chunk.js"
+    "static/css/main.6f1b544c.chunk.css",
+    "static/js/main.deb7f73b.chunk.js"
   ]
 }
