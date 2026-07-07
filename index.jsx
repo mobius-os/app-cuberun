@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 // Cache-bust key for the asset entry document. Mobius's 2026-06-12
 // /app-assets caching change (ETag/304 + Range/206) let this wrapper's old
@@ -9,14 +9,37 @@ import { useState, useEffect, useRef } from 'react'
 // sidesteps every poisoned entry already on devices without needing client
 // caches cleared. Bump it only if this URL ever needs re-keying again.
 const ASSET_BUST = 'v=20260630b'
+const HIGH_SCORES_PATH = 'highscores.json'
+
+function normalizeHighScores(value) {
+  if (!Array.isArray(value)) return [0, 0, 0]
+
+  const scores = value
+    .map((score) => Number(score))
+    .filter((score) => Number.isFinite(score) && score >= 0)
+    .map((score) => Math.round(score))
+    .sort((a, b) => b - a)
+    .slice(0, 3)
+
+  while (scores.length < 3) scores.push(0)
+  return scores
+}
+
+function emitSignal(name, payload = {}) {
+  try {
+    window.mobius?.signal?.(name, payload)
+  } catch {
+    /* Signal delivery is best-effort; never block the game wrapper. */
+  }
+}
 
 // Probe the asset index.html before mounting the iframe. Returns 'ok',
 // 'missing', or 'error'.
 async function probeAsset(url) {
-  // The probe exists only to catch a hard 404 (missing assets) with a
-  // friendly panel. Anything ambiguous — timeout, SW interception, odd
-  // status — resolves 'ok' and lets the iframe itself be the real test:
-  // a wrapper must never be able to wedge the game behind a spinner.
+  // The probe exists to catch hard missing assets and first-load network
+  // failures with a friendly panel. Ambiguous slow probes still fail open;
+  // the iframe load event or the build's postMessage heartbeat is the real
+  // readiness signal.
   const timeout = new Promise((resolve) => setTimeout(() => resolve('ok'), 3000))
   const check = (async () => {
     try {
@@ -27,9 +50,10 @@ async function probeAsset(url) {
       // body is discarded — only the status matters.
       const res = await fetch(url, { method: 'GET', cache: 'no-store' })
       if (res.status === 404) return 'missing'
+      if (!res.ok) return 'error'
       return 'ok'
     } catch {
-      return 'ok'
+      return 'error'
     }
   })()
   return Promise.race([timeout, check])
@@ -72,7 +96,7 @@ const CSS = `
 /* /mobius-ui */
 /* mobius-ui: error-panel */
 .cr-error-panel {
-  max-width: 320px; padding: 28px 24px; border-radius: 14px;
+  max-width: 320px; padding: 28px 24px; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--border);
   text-align: center;
 }
@@ -92,6 +116,10 @@ const CSS = `
   font-family: var(--font); font-size: 14px; font-weight: 600;
 }
 .cr-retry:hover { background: var(--accent-hover); }
+.cr-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 /* /mobius-ui */
 `
 
@@ -122,9 +150,30 @@ export default function CubeRunApp({ appId }) {
   // 'probing' → 'loading' (probe passed, iframe mounted) → 'ready' (iframe onLoad)
   // 'missing' or 'error' replace the above on probe failure.
   const [phase, setPhase] = useState('probing')
+  const [errorSource, setErrorSource] = useState('asset_probe')
   // Bumping this key re-runs the probe effect — the Retry control's mechanism.
   const [attempt, setAttempt] = useState(0)
   const iframeRef = useRef(null)
+  const readySignaled = useRef(false)
+
+  const postToFrame = useCallback((message) => {
+    try {
+      iframeRef.current?.contentWindow?.postMessage(message, window.location.origin)
+    } catch {
+      /* Frame may have gone away while retrying. */
+    }
+  }, [])
+
+  const loadHighScores = useCallback(async () => {
+    try {
+      if (!window.mobius?.storage) return null
+      const stored = await window.mobius.storage.get(HIGH_SCORES_PATH)
+      if (stored == null) return null
+      return normalizeHighScores(stored)
+    } catch {
+      return null
+    }
+  }, [])
 
   useEffect(() => {
     let live = true
@@ -134,20 +183,62 @@ export default function CubeRunApp({ appId }) {
       if (result === 'ok') {
         setPhase('loading')
       } else {
+        setErrorSource('asset_probe')
         setPhase(result) // 'missing' or 'error'
       }
     })
     return () => { live = false }
   }, [src, attempt])
 
-  // onLoad on a nested iframe has proven unreliable enough to wedge the
-  // spinner overlay over a perfectly working game. Belt-and-suspenders:
-  // once the iframe is mounted, drop the overlay after 5s no matter what.
   useEffect(() => {
-    if (phase !== 'loading') return
-    const t = setTimeout(() => setPhase('ready'), 5000)
-    return () => clearTimeout(t)
-  }, [phase])
+    if (phase === 'ready' && !readySignaled.current) {
+      readySignaled.current = true
+      emitSignal('app_ready', { item_count: 0 })
+      loadHighScores().then((scores) => {
+        if (scores) postToFrame({ type: 'cuberun:highscores', scores })
+      })
+    }
+    if (phase === 'missing' || phase === 'error') {
+      emitSignal('error', {
+        message: phase === 'missing' ? 'Game assets missing' : "Couldn't load CubeRun",
+        source: errorSource,
+      })
+    }
+  }, [errorSource, loadHighScores, phase, postToFrame])
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return
+
+      const data = event.data || {}
+      if (data.type === 'cuberun:ready') {
+        setPhase('ready')
+        return
+      }
+
+      if (data.type === 'cuberun:get_highscores') {
+        loadHighScores().then((scores) => {
+          if (scores) postToFrame({ type: 'cuberun:highscores', scores })
+        })
+        return
+      }
+
+      if (data.type === 'cuberun:set_highscores') {
+        const scores = normalizeHighScores(data.scores)
+        window.mobius?.storage?.set?.(HIGH_SCORES_PATH, scores)?.catch?.(() => {})
+        postToFrame({ type: 'cuberun:highscores', scores })
+        return
+      }
+
+      if (data.type === 'cuberun:event' && typeof data.event === 'string') {
+        emitSignal(data.event, data.payload || {})
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [loadHighScores, postToFrame])
 
   const showFrame = phase === 'loading' || phase === 'ready'
 
@@ -166,7 +257,10 @@ export default function CubeRunApp({ appId }) {
           className="cr-frame"
           allow="autoplay; fullscreen; gamepad"
           onLoad={() => setPhase('ready')}
-          onError={() => setPhase('error')}
+          onError={() => {
+            setErrorSource('iframe')
+            setPhase('error')
+          }}
         />
       )}
 
@@ -191,7 +285,10 @@ export default function CubeRunApp({ appId }) {
             <button
               type="button"
               className="cr-retry"
-              onClick={() => setAttempt((n) => n + 1)}
+              onClick={() => {
+                setErrorSource('asset_probe')
+                setAttempt((n) => n + 1)
+              }}
             >
               Retry
             </button>

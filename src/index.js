@@ -18,3 +18,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <CubeWorld bgColor='#141622' />
   </React.StrictMode>
 )
+
+try {
+  window.parent.postMessage({ type: 'cuberun:ready' }, window.location.origin)
+} catch {
+  /* Standalone development page. */
+}
