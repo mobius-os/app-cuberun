@@ -252,19 +252,24 @@ export default function CubeRunApp({ appId }) {
           postToFrame({ type: 'cuberun:nav_back', label: data.label })
         })
         navHandlesRef.current.set(data.label, handle)
-        Promise.resolve(handle.ready).then(
-          () => {
-            if (navHandlesRef.current.get(data.label) === handle) {
-              postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: true })
-            }
-          },
-          () => {
-            if (navHandlesRef.current.get(data.label) === handle) {
-              navHandlesRef.current.delete(data.label)
-              postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: false })
-            }
-          },
-        )
+        // handle.ready RESOLVES to a boolean — true when the shell installed
+        // the back-stack sentinel, false when the push was refused or timed
+        // out (e.g. a standalone launch, where makeNav resolves false because
+        // window.parent === window). It NEVER rejects, so the old
+        // fulfilled-vs-rejected split always took the fulfilled branch and
+        // reported ready:true even on a refused push. Read the resolved
+        // boolean, and only keep the handle owned (cached in navHandlesRef)
+        // when it's true. On false, drop it so a device back falls through to
+        // the shell — the correct degradation — and a later open retries the
+        // real push instead of the has()-fast-path above replying a stale
+        // ready:true forever.
+        Promise.resolve(handle.ready)
+          .catch(() => false)
+          .then((ready) => {
+            if (navHandlesRef.current.get(data.label) !== handle) return
+            if (!ready) navHandlesRef.current.delete(data.label)
+            postToFrame({ type: 'cuberun:nav_ready', label: data.label, ready: !!ready })
+          })
         return
       }
 
