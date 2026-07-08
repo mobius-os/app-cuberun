@@ -9,6 +9,15 @@ import { normalizeHighScores, postToWrapper, readHighScores, writeHighScores } f
 
 const GAME_OVER_NAV_LABEL = 'cuberun-game-over'
 
+// Safety-net bound for the game-over back handshake. The wrapper ALWAYS
+// answers cuberun:nav_open with a cuberun:nav_ready once the real nav
+// protocol settles — right away when there's no shell nav API, or after the
+// shell acks/rejects/times out (window.mobius.nav's own bound is 5000ms).
+// That reply is the true "ready" gate; this timer only fires if the reply
+// never arrives at all (dead wrapper), so it sits past the protocol's 5s
+// bound plus bridge-hop overhead and never pre-empts a genuine resolution.
+const NAV_READY_TIMEOUT_MS = 6000
+
 const GameOverScreen = () => {
   const [shown, setShown] = useState(false)
   const [opaque, setOpaque] = useState(false)
@@ -78,9 +87,14 @@ const GameOverScreen = () => {
     window.addEventListener('message', handleMessage)
     postToWrapper({ type: 'cuberun:nav_open', label: GAME_OVER_NAV_LABEL })
 
+    // Await the real protocol: cuberun:nav_ready (above) flips shown as soon
+    // as the handshake settles. This is only a fallback for a wrapper reply
+    // that never comes — gated on waitingForWrapper so a genuine resolution
+    // wins, and bounded past the protocol's own 5s deadline (see
+    // NAV_READY_TIMEOUT_MS) instead of racing it with a shorter clock.
     const fallback = setTimeout(() => {
       if (live && waitingForWrapper) setShown(true)
-    }, 250)
+    }, NAV_READY_TIMEOUT_MS)
 
     return () => {
       live = false
