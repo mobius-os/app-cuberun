@@ -92,7 +92,9 @@ function Music() {
   useEffect(() => {
     const updatePageActive = () => {
       const wasActive = pageActive.current
-      pageActive.current = document.visibilityState !== 'hidden' && document.hasFocus()
+      // Match gameplay pause semantics: iframe focus is noisy in Mobius,
+      // while visibility is the reliable signal for stopping/resuming audio.
+      pageActive.current = document.visibilityState !== 'hidden'
       if (pageActive.current && !wasActive) {
         resumeCurrentPlayers()
       } else if (!pageActive.current) {

@@ -15,8 +15,12 @@ export default function VisibilityPause() {
       }
     }
 
+    // CubeRun runs inside a nested same-origin iframe in Mobius. Browser focus can
+    // move to shell/fullscreen controls while the iframe stays visible, so using
+    // document.hasFocus() here freezes visible gameplay. Pause only when the
+    // page is actually hidden; pagehide still handles unload.
     const updatePauseState = () => {
-      setPaused(document.visibilityState === 'hidden' || !document.hasFocus())
+      setPaused(document.visibilityState === 'hidden')
     }
 
     updatePauseState()
