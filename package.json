@@ -14,7 +14,7 @@
   },
   "scripts": {
     "start": "HOST=0.0.0.0 react-scripts start",
-    "build": "NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
+    "build": "bash tools/fix-three-loaderutils.sh && NODE_OPTIONS=--openssl-legacy-provider react-scripts build",
     "verify:mobius": "node tools/verify-mobius-package.mjs",
     "test": "react-scripts test --watchAll=false",
     "eject": "react-scripts eject"
