@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 // iframe rendered a one-character document (black screen). A fresh query key
 // sidesteps every poisoned entry already on devices without needing client
 // caches cleared. Bump it only if this URL ever needs re-keying again.
-const ASSET_BUST = 'v=20260630b'
+const ASSET_BUST = 'v=20260709c'
 const HIGH_SCORES_PATH = 'highscores.json'
 
 function normalizeHighScores(value) {
