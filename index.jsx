@@ -61,10 +61,22 @@ async function probeAsset(url) {
 
 const CSS = `
 @keyframes cr-spin { to { transform: rotate(360deg); } }
+/* mobius-ui:Root v1 — keep in sync; library candidate. Cuberun is
+   immersive, so this wrapper only owns loading/error chrome around the game. */
 .cr-root {
   position: relative; height: 100%; width: 100%; overflow: hidden;
   background: var(--bg); display: flex; align-items: center; justify-content: center;
+  color: var(--text); font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
+/* /mobius-ui:Root */
+/* mobius-ui:Focus v1 -- shared keyboard focus ring (WCAG 2.4.7); never bare outline:none */
+:where(button,a,input,textarea,select,summary,[role="button"],[tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* /mobius-ui:Focus */
 .cr-frame {
   position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
   display: block; background: var(--bg);
@@ -90,24 +102,21 @@ const CSS = `
   border-top-color: var(--accent);
   animation: cr-spin 0.9s linear infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-  .cr-spinner { animation: none; }
-}
 .cr-label {
   font-family: var(--font);
-  font-size: 14px; color: var(--muted); letter-spacing: 0.02em;
+  font-size: 14px; color: var(--muted); letter-spacing: 0;
 }
 /* /mobius-ui */
 /* mobius-ui: error-panel */
 .cr-error-panel {
-  max-width: 320px; padding: 28px 24px; border-radius: 12px;
+  max-width: 320px; padding: 28px 24px; border-radius: 8px;
   background: var(--surface); border: 1px solid var(--border);
   text-align: center;
 }
 .cr-error-title {
   font-family: var(--font);
   font-size: 15px; font-weight: 700; color: var(--text);
-  margin-bottom: 10px; letter-spacing: -0.01em;
+  margin-bottom: 10px; letter-spacing: 0;
 }
 .cr-error-body {
   font-family: var(--font);
@@ -115,16 +124,23 @@ const CSS = `
 }
 .cr-retry {
   margin-top: 18px; min-height: 44px; padding: 0 22px;
-  border: 0; border-radius: 10px; cursor: pointer;
+  border: 0; border-radius: 8px; cursor: pointer;
   background: var(--accent); color: var(--accent-fg);
   font-family: var(--font); font-size: 14px; font-weight: 600;
 }
-.cr-retry:hover { background: var(--accent-hover); }
 .cr-retry:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+@media (hover: hover) and (pointer: fine) {
+  .cr-retry:hover { background: var(--accent-hover); }
+}
 /* /mobius-ui */
+/* mobius-ui:ReducedMotion v1 — keep in sync; library candidate. Diverge below the marker only. */
+@media (prefers-reduced-motion: reduce) {
+  .cr-spinner { animation: none; }
+}
+/* /mobius-ui:ReducedMotion */
 `
 
 export default function CubeRunApp({ appId }) {
