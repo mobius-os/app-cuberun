@@ -48,14 +48,19 @@ const Overlay = () => {
 
   const handleStart = () => {
     setGameStarted(true)
+    postToWrapper({
+      type: 'cuberun:event',
+      event: 'game_started',
+      payload: { music_enabled: musicEnabled },
+    })
   }
 
   const handleMusic = () => {
     enableMusic(!musicEnabled)
     postToWrapper({
       type: 'cuberun:event',
-      event: 'item_updated',
-      payload: { type: 'settings' },
+      event: 'music_toggled',
+      payload: { enabled: !musicEnabled },
     })
   }
 
