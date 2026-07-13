@@ -185,6 +185,56 @@ export default function CubeRunApp({ appId }) {
     }
   }, [])
 
+  // ── Pause the game when the shell backgrounds this app ───────────
+  // Mobius keeps recently-used apps mounted and hides the inactive one by
+  // setting `visibility:hidden` on a shell ancestor — it does NOT unmount the
+  // iframe. CSS visibility on an ancestor does not change this nested game
+  // iframe's Page Visibility state, so the packaged game's own
+  // visibilitychange/pagehide audio-pause never fires: music (and gameplay)
+  // keep running after you exit. The shell now posts
+  // {type:'moebius:frame-visibility', visible} to this wrapper when it flips.
+  // We translate that into the signal the game already understands — we shim
+  // document.visibilityState on the same-origin inner game document and
+  // dispatch `visibilitychange`, so its EXISTING, tested tab-hide pause/resume
+  // path runs. On return we restore the native getters and re-dispatch, and
+  // the game resumes exactly as it does when a real tab is re-shown.
+  const hiddenRef = useRef(false)
+  const applyInnerVisibility = useCallback((hidden) => {
+    hiddenRef.current = hidden
+    const frame = iframeRef.current
+    const doc = frame?.contentDocument
+    const win = frame?.contentWindow
+    if (!doc || !win) return
+    try {
+      if (hidden) {
+        Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'hidden' })
+        Object.defineProperty(doc, 'hidden', { configurable: true, get: () => true })
+      } else {
+        // Remove our own-property shims so reads fall back through to the
+        // native Document.prototype getters (real page-visibility state).
+        delete doc.visibilityState
+        delete doc.hidden
+      }
+      doc.dispatchEvent(new win.Event('visibilitychange'))
+    } catch {
+      /* Inner frame not same-origin-ready yet — re-applied on cuberun:ready. */
+    }
+  }, [])
+
+  useEffect(() => {
+    const onShellMessage = (event) => {
+      if (event.origin !== window.location.origin) return
+      // frame-visibility comes from the shell parent, not the inner game frame.
+      if (event.source !== window.parent) return
+      const data = event.data || {}
+      if (data.type === 'moebius:frame-visibility') {
+        applyInnerVisibility(data.visible === false)
+      }
+    }
+    window.addEventListener('message', onShellMessage)
+    return () => window.removeEventListener('message', onShellMessage)
+  }, [applyInnerVisibility])
+
   const loadHighScores = useCallback(async () => {
     try {
       if (!window.mobius?.storage) return null
@@ -235,6 +285,9 @@ export default function CubeRunApp({ appId }) {
       const data = event.data || {}
       if (data.type === 'cuberun:ready') {
         setPhase('ready')
+        // If the shell backgrounded us while the game was still loading, apply
+        // the hidden shim now that the inner document exists.
+        if (hiddenRef.current) applyInnerVisibility(true)
         return
       }
 
@@ -309,7 +362,7 @@ export default function CubeRunApp({ appId }) {
       }
       navHandlesRef.current.clear()
     }
-  }, [loadHighScores, postToFrame])
+  }, [applyInnerVisibility, loadHighScores, postToFrame])
 
   const showFrame = phase === 'loading' || phase === 'ready'
 
