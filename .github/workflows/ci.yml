@@ -1,0 +1,33 @@
+name: CI
+
+# CubeRun ships a prebuilt CRA bundle wrapped by a Möbius mini-app (index.jsx).
+# CI validates the two things that actually change here: the Möbius package
+# manifest (verify:mobius) and that the wrapper JSX compiles the way the Möbius
+# compiler does. The full react-scripts test/build isn't run — there are no unit
+# tests and the shipped artifact is the prebuilt build/ tree.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify mobius package (static_assets manifest)
+        run: npm run verify:mobius
+
+      - name: Compile-smoke the Möbius wrapper (index.jsx)
+        run: >
+          npx --yes esbuild@0.25.12 index.jsx
+          --bundle --format=esm --jsx=automatic --packages=external
+          --outfile=/dev/null
