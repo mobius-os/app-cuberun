@@ -179,7 +179,10 @@ export default function CubeRunApp({ appId }) {
 
   const postToFrame = useCallback((message) => {
     try {
-      iframeRef.current?.contentWindow?.postMessage(message, window.location.origin)
+      // The packaged game inherits this wrapper's opaque sandbox origin, so it
+      // can only be addressed with `*`; incoming messages are authenticated by
+      // the exact contentWindow in handleMessage below.
+      iframeRef.current?.contentWindow?.postMessage(message, '*')
     } catch {
       /* Frame may have gone away while retrying. */
     }
@@ -193,33 +196,13 @@ export default function CubeRunApp({ appId }) {
   // visibilitychange/pagehide audio-pause never fires: music (and gameplay)
   // keep running after you exit. The shell now posts
   // {type:'moebius:frame-visibility', visible} to this wrapper when it flips.
-  // We translate that into the signal the game already understands — we shim
-  // document.visibilityState on the same-origin inner game document and
-  // dispatch `visibilitychange`, so its EXISTING, tested tab-hide pause/resume
-  // path runs. On return we restore the native getters and re-dispatch, and
-  // the game resumes exactly as it does when a real tab is re-shown.
+  // We forward that state through the source-bound bridge. The inner document
+  // inherits our opaque origin, so direct contentDocument access is forbidden.
   const hiddenRef = useRef(false)
   const applyInnerVisibility = useCallback((hidden) => {
     hiddenRef.current = hidden
-    const frame = iframeRef.current
-    const doc = frame?.contentDocument
-    const win = frame?.contentWindow
-    if (!doc || !win) return
-    try {
-      if (hidden) {
-        Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'hidden' })
-        Object.defineProperty(doc, 'hidden', { configurable: true, get: () => true })
-      } else {
-        // Remove our own-property shims so reads fall back through to the
-        // native Document.prototype getters (real page-visibility state).
-        delete doc.visibilityState
-        delete doc.hidden
-      }
-      doc.dispatchEvent(new win.Event('visibilitychange'))
-    } catch {
-      /* Inner frame not same-origin-ready yet — re-applied on cuberun:ready. */
-    }
-  }, [])
+    postToFrame({ type: 'cuberun:visibility', visible: !hidden })
+  }, [postToFrame])
 
   useEffect(() => {
     const onShellMessage = (event) => {
@@ -279,8 +262,9 @@ export default function CubeRunApp({ appId }) {
 
   useEffect(() => {
     const handleMessage = (event) => {
-      if (event.origin !== window.location.origin) return
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return
+      const inner = iframeRef.current?.contentWindow
+      if (!inner || event.source !== inner) return
+      if (event.origin !== 'null' && event.origin !== window.location.origin) return
 
       const data = event.data || {}
       if (data.type === 'cuberun:ready') {
@@ -380,7 +364,10 @@ export default function CubeRunApp({ appId }) {
           src={src}
           className="cr-frame"
           allow="autoplay; fullscreen; gamepad"
-          onLoad={() => setPhase('ready')}
+          onLoad={() => {
+            setPhase('ready')
+            applyInnerVisibility(hiddenRef.current)
+          }}
           onError={() => {
             setErrorSource('iframe')
             setPhase('error')

@@ -1,5 +1,6 @@
 import {
   HIGH_SCORES_KEY,
+  isTrustedWrapperMessage,
   LEGACY_HIGH_SCORES_KEY,
   LEGACY_MUSIC_ENABLED_KEY,
   MUSIC_ENABLED_KEY,
@@ -61,5 +62,25 @@ describe('storage helpers', () => {
     })
 
     expect(readMusicEnabled(storage)).toBe(true)
+  })
+
+  it('trusts only the wrapper window, including its opaque origin', () => {
+    const wrapper = {}
+    expect(isTrustedWrapperMessage(
+      { source: wrapper, origin: 'null' }, wrapper, 'https://mobius.test',
+    )).toBe(true)
+    expect(isTrustedWrapperMessage(
+      { source: wrapper, origin: 'https://mobius.test' },
+      wrapper,
+      'https://mobius.test',
+    )).toBe(true)
+    expect(isTrustedWrapperMessage(
+      { source: {}, origin: 'null' }, wrapper, 'https://mobius.test',
+    )).toBe(false)
+    expect(isTrustedWrapperMessage(
+      { source: wrapper, origin: 'https://evil.test' },
+      wrapper,
+      'https://mobius.test',
+    )).toBe(false)
   })
 })

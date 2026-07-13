@@ -5,6 +5,7 @@ import { MathUtils } from 'three'
 
 
 import { mutation, useStore } from '../state/useStore'
+import { isTrustedWrapperMessage } from '../util/storage'
 
 import introSong from '../audio/intro-loop.mp3'
 
@@ -90,29 +91,34 @@ function Music() {
   }, [gameOver, gameStarted, musicEnabled, startIntro, startMainTheme])
 
   useEffect(() => {
+    let wrapperVisible = true
     const updatePageActive = () => {
       const wasActive = pageActive.current
-      // Match gameplay pause semantics: iframe focus is noisy in Mobius,
-      // while visibility is the reliable signal for stopping/resuming audio.
-      pageActive.current = document.visibilityState !== 'hidden'
+      pageActive.current = (
+        wrapperVisible && document.visibilityState !== 'hidden'
+      )
       if (pageActive.current && !wasActive) {
         resumeCurrentPlayers()
       } else if (!pageActive.current) {
         stopAllPlayers()
       }
     }
+    const onWrapperMessage = (event) => {
+      if (!isTrustedWrapperMessage(event)) return
+      if (event.data?.type !== 'cuberun:visibility') return
+      wrapperVisible = event.data.visible !== false
+      updatePageActive()
+    }
 
     updatePageActive()
     document.addEventListener('visibilitychange', updatePageActive)
-    window.addEventListener('blur', updatePageActive)
-    window.addEventListener('focus', updatePageActive)
+    window.addEventListener('message', onWrapperMessage)
     window.addEventListener('pagehide', stopAllPlayers)
 
     return () => {
       stopAllPlayers()
       document.removeEventListener('visibilitychange', updatePageActive)
-      window.removeEventListener('blur', updatePageActive)
-      window.removeEventListener('focus', updatePageActive)
+      window.removeEventListener('message', onWrapperMessage)
       window.removeEventListener('pagehide', stopAllPlayers)
     }
   }, [resumeCurrentPlayers])

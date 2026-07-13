@@ -5,7 +5,13 @@ import cubeRunLogo from '../../textures/cuberun-logo.png'
 import '../../styles/gameMenu.css'
 
 import { useStore } from '../../state/useStore'
-import { normalizeHighScores, postToWrapper, readHighScores, writeHighScores } from '../../util/storage'
+import {
+  isTrustedWrapperMessage,
+  normalizeHighScores,
+  postToWrapper,
+  readHighScores,
+  writeHighScores,
+} from '../../util/storage'
 
 const GAME_OVER_NAV_LABEL = 'cuberun-game-over'
 
@@ -32,7 +38,7 @@ const GameOverScreen = () => {
 
   useEffect(() => {
     const handleMessage = (event) => {
-      if (event.origin !== window.location.origin) return
+      if (!isTrustedWrapperMessage(event)) return
       if (event.data?.type !== 'cuberun:highscores') return
 
       const scores = writeHighScores(event.data.scores)
@@ -70,7 +76,7 @@ const GameOverScreen = () => {
     let waitingForWrapper = true
 
     const handleMessage = (event) => {
-      if (event.origin !== window.location.origin) return
+      if (!isTrustedWrapperMessage(event)) return
       if (event.data?.label !== GAME_OVER_NAV_LABEL) return
 
       if (event.data?.type === 'cuberun:nav_ready') {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { mutation, useStore } from '../state/useStore'
+import { isTrustedWrapperMessage } from '../util/storage'
 
 export default function VisibilityPause() {
   const set = useStore((state) => state.set)
@@ -15,25 +16,30 @@ export default function VisibilityPause() {
       }
     }
 
-    // CubeRun runs inside a nested same-origin iframe in Mobius. Browser focus can
-    // move to shell/fullscreen controls while the iframe stays visible, so using
-    // document.hasFocus() here freezes visible gameplay. Pause only when the
-    // page is actually hidden; pagehide still handles unload.
+    let wrapperVisible = true
+
+    // CubeRun's nested frame inherits Möbius's opaque sandbox, so its native
+    // Page Visibility state does not change when the shell merely backgrounds
+    // the outer app. The wrapper forwards that state explicitly.
     const updatePauseState = () => {
-      setPaused(document.visibilityState === 'hidden')
+      setPaused(!wrapperVisible || document.visibilityState === 'hidden')
+    }
+    const onWrapperMessage = (event) => {
+      if (!isTrustedWrapperMessage(event)) return
+      if (event.data?.type !== 'cuberun:visibility') return
+      wrapperVisible = event.data.visible !== false
+      updatePauseState()
     }
 
     updatePauseState()
     document.addEventListener('visibilitychange', updatePauseState)
-    window.addEventListener('blur', updatePauseState)
-    window.addEventListener('focus', updatePauseState)
+    window.addEventListener('message', onWrapperMessage)
     const pauseForPageHide = () => setPaused(true)
     window.addEventListener('pagehide', pauseForPageHide)
 
     return () => {
       document.removeEventListener('visibilitychange', updatePauseState)
-      window.removeEventListener('blur', updatePauseState)
-      window.removeEventListener('focus', updatePauseState)
+      window.removeEventListener('message', onWrapperMessage)
       window.removeEventListener('pagehide', pauseForPageHide)
       mutation.gamePaused = false
     }

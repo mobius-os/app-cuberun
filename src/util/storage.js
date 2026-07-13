@@ -60,11 +60,25 @@ export function writeMusicEnabled(enabled, storage = window.localStorage) {
   return value
 }
 
+export function isTrustedWrapperMessage(
+  event,
+  parentWindow = window.parent,
+  expectedOrigin = window.location.origin,
+) {
+  return event?.source === parentWindow && (
+    event.origin === expectedOrigin || event.origin === 'null'
+  )
+}
+
 export function postToWrapper(message) {
   if (typeof window === 'undefined' || window.parent === window) return
   try {
-    window.parent.postMessage(message, window.location.origin)
+    // Möbius deliberately runs both this packaged game and its wrapper under
+    // an opaque sandbox origin. Opaque targets cannot be addressed with a
+    // concrete targetOrigin; the wrapper authenticates this sender by the
+    // exact child contentWindow instead.
+    window.parent.postMessage(message, '*')
   } catch {
-    /* Standalone development page without a same-origin parent. */
+    /* Standalone development page without a parent. */
   }
 }

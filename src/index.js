@@ -20,7 +20,7 @@ if (ReactDOM.createRoot) {
 }
 
 try {
-  window.parent.postMessage({ type: 'cuberun:ready' }, window.location.origin)
+  window.parent.postMessage({ type: 'cuberun:ready' }, '*')
 } catch {
   /* Standalone development page. */
 }
