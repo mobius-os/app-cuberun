@@ -28,35 +28,63 @@ function safeParseJson(value) {
   }
 }
 
-export function readHighScores(storage = window.localStorage) {
-  const namespaced = safeParseJson(storage.getItem(HIGH_SCORES_KEY))
+function browserStorage() {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    // Sandboxed opaque frames can throw before the wrapper bridge is ready.
+    return null
+  }
+}
+
+function safeGet(storage, key) {
+  try {
+    return storage?.getItem(key) ?? null
+  } catch {
+    return null
+  }
+}
+
+function safeSet(storage, key, value) {
+  try {
+    storage?.setItem(key, value)
+  } catch {
+    // The wrapper owns durable storage in Mobius; standalone storage is best
+    // effort and must never prevent the game from rendering.
+  }
+}
+
+export function readHighScores(storage) {
+  const target = storage ?? browserStorage()
+  const namespaced = safeParseJson(safeGet(target, HIGH_SCORES_KEY))
   if (namespaced) return normalizeHighScores(namespaced)
 
-  const legacy = safeParseJson(storage.getItem(LEGACY_HIGH_SCORES_KEY))
+  const legacy = safeParseJson(safeGet(target, LEGACY_HIGH_SCORES_KEY))
   if (legacy) return normalizeHighScores(legacy)
 
   return [...DEFAULT_HIGH_SCORES]
 }
 
-export function writeHighScores(scores, storage = window.localStorage) {
+export function writeHighScores(scores, storage) {
   const normalized = normalizeHighScores(scores)
-  storage.setItem(HIGH_SCORES_KEY, JSON.stringify(normalized))
+  safeSet(storage ?? browserStorage(), HIGH_SCORES_KEY, JSON.stringify(normalized))
   return normalized
 }
 
-export function readMusicEnabled(storage = window.localStorage) {
-  const namespaced = safeParseJson(storage.getItem(MUSIC_ENABLED_KEY))
+export function readMusicEnabled(storage) {
+  const target = storage ?? browserStorage()
+  const namespaced = safeParseJson(safeGet(target, MUSIC_ENABLED_KEY))
   if (typeof namespaced === 'boolean') return namespaced
 
-  const legacy = safeParseJson(storage.getItem(LEGACY_MUSIC_ENABLED_KEY))
+  const legacy = safeParseJson(safeGet(target, LEGACY_MUSIC_ENABLED_KEY))
   if (typeof legacy === 'boolean') return legacy
 
   return false
 }
 
-export function writeMusicEnabled(enabled, storage = window.localStorage) {
+export function writeMusicEnabled(enabled, storage) {
   const value = Boolean(enabled)
-  storage.setItem(MUSIC_ENABLED_KEY, JSON.stringify(value))
+  safeSet(storage ?? browserStorage(), MUSIC_ENABLED_KEY, JSON.stringify(value))
   return value
 }
 

@@ -64,6 +64,37 @@ describe('storage helpers', () => {
     expect(readMusicEnabled(storage)).toBe(true)
   })
 
+  it('renders with defaults when opaque-frame localStorage is unavailable', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage')
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('Access denied', 'SecurityError')
+      },
+    })
+
+    try {
+      expect(readHighScores()).toEqual([0, 0, 0])
+      expect(readMusicEnabled()).toBe(false)
+      expect(writeHighScores([30, 20, 10])).toEqual([30, 20, 10])
+      expect(writeMusicEnabled(true)).toBe(true)
+    } finally {
+      Object.defineProperty(window, 'localStorage', descriptor)
+    }
+  })
+
+  it('treats throwing storage methods as unavailable', () => {
+    const storage = {
+      getItem() { throw new DOMException('Access denied', 'SecurityError') },
+      setItem() { throw new DOMException('Access denied', 'SecurityError') },
+    }
+
+    expect(readHighScores(storage)).toEqual([0, 0, 0])
+    expect(readMusicEnabled(storage)).toBe(false)
+    expect(writeHighScores([3, 2, 1], storage)).toEqual([3, 2, 1])
+    expect(writeMusicEnabled(true, storage)).toBe(true)
+  })
+
   it('trusts only the wrapper window, including its opaque origin', () => {
     const wrapper = {}
     expect(isTrustedWrapperMessage(

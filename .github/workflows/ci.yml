@@ -2,9 +2,9 @@ name: CI
 
 # CubeRun ships a prebuilt CRA bundle wrapped by a Möbius mini-app (index.jsx).
 # CI validates the two things that actually change here: the Möbius package
-# manifest (verify:mobius) and that the wrapper JSX compiles the way the Möbius
-# compiler does. The full react-scripts test/build isn't run — there are no unit
-# tests and the shipped artifact is the prebuilt build/ tree.
+# manifest (verify:mobius), the storage/message unit tests, and that the wrapper
+# JSX compiles the way the Möbius compiler does. The shipped game remains the
+# checked-in prebuilt build/ tree, so CI does not rebuild it implicitly.
 on:
   push:
     branches: [main]
@@ -22,6 +22,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run unit tests
+        run: yarn test --runInBand
 
       - name: Verify mobius package (static_assets manifest)
         run: npm run verify:mobius
