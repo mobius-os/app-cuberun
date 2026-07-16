@@ -48,6 +48,10 @@ const CSS = `
   outline-offset: 2px;
 }
 /* /mobius-ui:Focus */
+.cr-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .cr-frame {
   position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
   display: block; background: var(--bg);
@@ -339,6 +343,7 @@ export default function CubeRunApp({ appId }) {
   return (
     <div className="cr-root">
       <style>{CSS}</style>
+      <h1 className="cr-sr-only">CubeRun</h1>
 
       {showFrame && (
         <iframe
