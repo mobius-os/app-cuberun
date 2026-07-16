@@ -1,11 +1,37 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const root = process.cwd()
 const manifestPath = path.join(root, 'mobius.json')
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 const staticAssets = manifest.static_assets || {}
 const errors = []
+const wrapper = fs.readFileSync(path.join(root, 'index.jsx'), 'utf8')
+const gameEntry = fs.readFileSync(path.join(root, 'src/index.js'), 'utf8')
+const shipSource = fs.readFileSync(path.join(root, 'src/components/Ship.js'), 'utf8')
+
+if (wrapper.includes('/app-assets/')) {
+  errors.push(
+    'wrapper must not navigate a document through the ordinary same-origin /app-assets lane',
+  )
+}
+if (!wrapper.includes('/app-embeds/by-id/')) {
+  errors.push('wrapper does not use the sandboxed /app-embeds document lane')
+}
+if (!wrapper.includes('sandbox="allow-scripts allow-forms allow-pointer-lock"')) {
+  errors.push('wrapper iframe must keep an explicit sandbox without allow-same-origin')
+}
+if (!wrapper.includes("data.type === 'cuberun:navigating'")) {
+  errors.push('wrapper does not re-cover the frame before a later navigation')
+}
+if (!gameEntry.includes("post('cuberun:navigating')")
+    || !gameEntry.includes("addEventListener('beforeunload'")) {
+  errors.push('game entry does not source-signal before full-document navigation')
+}
+if (shipSource.includes('useGLTF') || shipSource.includes('DRACOLoader')) {
+  errors.push('uncompressed ship model must not retain the external Draco loader path')
+}
 
 function normalizeAssetPath(value) {
   return value.replace(/^\/+/, '').replace(/\\/g, '/')
@@ -16,6 +42,19 @@ function isExternalUrl(value) {
 }
 
 const declared = new Set(Object.keys(staticAssets).map(normalizeAssetPath))
+const declaredSources = new Set(
+  Object.values(staticAssets).map(normalizeAssetPath),
+)
+
+function filesBelow(directory) {
+  const out = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name)
+    if (entry.isDirectory()) out.push(...filesBelow(target))
+    else if (entry.isFile()) out.push(normalizeAssetPath(path.relative(root, target)))
+  }
+  return out
+}
 
 for (const [dest, src] of Object.entries(staticAssets)) {
   const destPath = normalizeAssetPath(dest)
@@ -23,6 +62,18 @@ for (const [dest, src] of Object.entries(staticAssets)) {
   if (destPath.includes('..')) errors.push(`static_assets destination escapes package: ${dest}`)
   if (srcPath.includes('..')) errors.push(`static_assets source escapes repo: ${src}`)
   if (!fs.existsSync(path.join(root, srcPath))) errors.push(`missing source for ${dest}: ${src}`)
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', srcPath], {
+      cwd: root,
+      stdio: 'ignore',
+    })
+  } catch {
+    errors.push(`source is not Git-tracked for ${dest}: ${src}`)
+  }
+}
+
+for (const built of filesBelow(path.join(root, 'build'))) {
+  if (!declaredSources.has(built)) errors.push(`undeclared build output: ${built}`)
 }
 
 for (const [dest, src] of Object.entries(staticAssets)) {

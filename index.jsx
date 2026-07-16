@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-// Cache-bust key for the asset entry document. Mobius's 2026-06-12
-// /app-assets caching change (ETag/304 + Range/206) let this wrapper's old
-// probe — a 'Range: bytes=0-0' GET — poison the browser HTTP cache and the
-// service worker cache under the bare index.html URL: later full GETs
-// revalidated 304 and got served the stored 1-byte body as a 200, so the
-// iframe rendered a one-character document (black screen). A fresh query key
-// sidesteps every poisoned entry already on devices without needing client
-// caches cleared. Bump it only if this URL ever needs re-keying again.
-const ASSET_BUST = 'v=20260709c'
+// Build key for the nested entry document. There is deliberately no fetch
+// probe: this wrapper has an opaque origin, so probing would require broad
+// CORS and would download the game twice. The source-bound ready heartbeat is
+// the only success signal; timeout/retry owns every missing or blocked case.
+const ASSET_BUST = 'v=20260715a'
+const READY_TIMEOUT_MS = 12000
 const HIGH_SCORES_PATH = 'highscores.json'
 
 function normalizeHighScores(value) {
@@ -31,32 +28,6 @@ function emitSignal(name, payload = {}) {
   } catch {
     /* Signal delivery is best-effort; never block the game wrapper. */
   }
-}
-
-// Probe the asset index.html before mounting the iframe. Returns 'ok',
-// 'missing', or 'error'.
-async function probeAsset(url) {
-  // The probe exists to catch hard missing assets and first-load network
-  // failures with a friendly panel. Ambiguous slow probes still fail open;
-  // the iframe load event or the build's postMessage heartbeat is the real
-  // readiness signal.
-  const timeout = new Promise((resolve) => setTimeout(() => resolve('ok'), 3000))
-  const check = (async () => {
-    try {
-      // Plain GET, never HEAD-then-Range: the server 405s HEAD, and the
-      // 'Range: bytes=0-0' fallback is what poisoned the HTTP cache with a
-      // 1-byte body once the server grew 206 support (see ASSET_BUST note).
-      // 'no-store' keeps the probe itself out of the HTTP cache; the ~2.5KB
-      // body is discarded — only the status matters.
-      const res = await fetch(url, { method: 'GET', cache: 'no-store' })
-      if (res.status === 404) return 'missing'
-      if (!res.ok) return 'error'
-      return 'ok'
-    } catch {
-      return 'error'
-    }
-  })()
-  return Promise.race([timeout, check])
 }
 
 const CSS = `
@@ -144,9 +115,11 @@ const CSS = `
 `
 
 export default function CubeRunApp({ appId }) {
-  const src = appId
-    ? `/app-assets/by-id/${appId}/index.html?${ASSET_BUST}`
-    : `/app-assets/cuberun/index.html?${ASSET_BUST}`
+  const [attempt, setAttempt] = useState(0)
+  const hasAppId = appId !== undefined && appId !== null && `${appId}`.trim() !== ''
+  const src = hasAppId
+    ? `/app-embeds/by-id/${appId}/index.html?${ASSET_BUST}&attempt=${attempt}`
+    : null
 
   // Ask the shell to hide its top bar so the game fills the whole screen,
   // including under the camera notch (the shell switches the iOS status bar
@@ -157,7 +130,7 @@ export default function CubeRunApp({ appId }) {
       try {
         window.parent.postMessage(
           { type: 'moebius:immersive', value, appId },
-          window.location.origin,
+          '*',
         )
       } catch {
         /* not embedded in the shell (standalone /a/cuberun) — no-op */
@@ -167,12 +140,14 @@ export default function CubeRunApp({ appId }) {
     return () => post(false)
   }, [appId])
 
-  // 'probing' → 'loading' (probe passed, iframe mounted) → 'ready' (iframe onLoad)
-  // 'missing' or 'error' replace the above on probe failure.
-  const [phase, setPhase] = useState('probing')
-  const [errorSource, setErrorSource] = useState('asset_probe')
-  // Bumping this key re-runs the probe effect — the Retry control's mechanism.
-  const [attempt, setAttempt] = useState(0)
+  // 'loading' (iframe mounted behind branding) → 'ready'
+  // (the source-bound inner heartbeat arrived). An iframe load event is not a
+  // readiness signal: Chromium fires it for an XFO/CSP-blocked error document.
+  // 'error' replaces the above on a browser error or heartbeat timeout.
+  const [phase, setPhase] = useState(hasAppId ? 'loading' : 'error')
+  const [errorSource, setErrorSource] = useState(
+    hasAppId ? 'ready_timeout' : 'missing_app_id',
+  )
   const iframeRef = useRef(null)
   const readySignaled = useRef(false)
   const navHandlesRef = useRef(new Map())
@@ -206,7 +181,6 @@ export default function CubeRunApp({ appId }) {
 
   useEffect(() => {
     const onShellMessage = (event) => {
-      if (event.origin !== window.location.origin) return
       // frame-visibility comes from the shell parent, not the inner game frame.
       if (event.source !== window.parent) return
       const data = event.data || {}
@@ -230,19 +204,19 @@ export default function CubeRunApp({ appId }) {
   }, [])
 
   useEffect(() => {
-    let live = true
-    setPhase('probing')
-    probeAsset(src).then((result) => {
-      if (!live) return
-      if (result === 'ok') {
-        setPhase('loading')
-      } else {
-        setErrorSource('asset_probe')
-        setPhase(result) // 'missing' or 'error'
-      }
-    })
-    return () => { live = false }
-  }, [src, attempt])
+    readySignaled.current = false
+    setErrorSource(hasAppId ? 'ready_timeout' : 'missing_app_id')
+    setPhase(hasAppId ? 'loading' : 'error')
+  }, [attempt, appId, hasAppId])
+
+  useEffect(() => {
+    if (phase !== 'loading') return
+    const timeout = setTimeout(() => {
+      setErrorSource('ready_timeout')
+      setPhase('error')
+    }, READY_TIMEOUT_MS)
+    return () => clearTimeout(timeout)
+  }, [phase, attempt])
 
   useEffect(() => {
     if (phase === 'ready' && !readySignaled.current) {
@@ -252,9 +226,9 @@ export default function CubeRunApp({ appId }) {
         if (scores) postToFrame({ type: 'cuberun:highscores', scores })
       })
     }
-    if (phase === 'missing' || phase === 'error') {
+    if (phase === 'error') {
       emitSignal('error', {
-        message: phase === 'missing' ? 'Game assets missing' : "Couldn't load CubeRun",
+        message: "Couldn't load CubeRun",
         source: errorSource,
       })
     }
@@ -264,9 +238,18 @@ export default function CubeRunApp({ appId }) {
     const handleMessage = (event) => {
       const inner = iframeRef.current?.contentWindow
       if (!inner || event.source !== inner) return
-      if (event.origin !== 'null' && event.origin !== window.location.origin) return
+      // The dedicated static-document namespace is response-sandboxed without
+      // allow-same-origin. Reject a heartbeat if a proxy ever drops that
+      // invariant and gives the nested document a real Möbius origin.
+      if (event.origin !== 'null') return
 
       const data = event.data || {}
+      if (data.type === 'cuberun:navigating') {
+        readySignaled.current = false
+        setErrorSource('ready_timeout')
+        setPhase('loading')
+        return
+      }
       if (data.type === 'cuberun:ready') {
         setPhase('ready')
         // If the shell backgrounded us while the game was still loading, apply
@@ -348,10 +331,10 @@ export default function CubeRunApp({ appId }) {
     }
   }, [applyInnerVisibility, loadHighScores, postToFrame])
 
-  const showFrame = phase === 'loading' || phase === 'ready'
+  const showFrame = Boolean(src) && (phase === 'loading' || phase === 'ready')
 
-  const showSpinner = phase === 'probing' || phase === 'loading'
-  const showError = phase === 'missing' || phase === 'error'
+  const showSpinner = phase === 'loading'
+  const showError = phase === 'error'
 
   return (
     <div className="cr-root">
@@ -360,12 +343,19 @@ export default function CubeRunApp({ appId }) {
       {showFrame && (
         <iframe
           ref={iframeRef}
+          key={attempt}
           title="CubeRun"
           src={src}
           className="cr-frame"
+          sandbox="allow-scripts allow-forms allow-pointer-lock"
+          style={{
+            opacity: phase === 'ready' ? 1 : 0,
+            pointerEvents: phase === 'ready' ? 'auto' : 'none',
+          }}
           allow="autoplay; fullscreen; gamepad"
           onLoad={() => {
-            setPhase('ready')
+            // Keep the branded overlay and the browser error document hidden
+            // until the exact child window proves its scripts actually ran.
             applyInnerVisibility(hiddenRef.current)
           }}
           onError={() => {
@@ -386,23 +376,27 @@ export default function CubeRunApp({ appId }) {
         <div className="cr-overlay cr-overlay--error">
           <div className="cr-error-panel" role="alert">
             <div className="cr-error-title">
-              {phase === 'missing' ? 'Game assets missing' : "Couldn't load CubeRun"}
+              Couldn't load CubeRun
             </div>
             <div className="cr-error-body">
-              {phase === 'missing'
-                ? 'Some files are missing. Retry, or reinstall CubeRun from the App Store.'
+              {errorSource === 'missing_app_id'
+                ? 'CubeRun needs to be opened from an installed app.'
+                : errorSource === 'ready_timeout'
+                ? 'CubeRun did not finish starting. Retry to load a fresh game document.'
                 : 'Something went wrong reaching the game. Check your connection and try again.'}
             </div>
-            <button
-              type="button"
-              className="cr-retry"
-              onClick={() => {
-                setErrorSource('asset_probe')
-                setAttempt((n) => n + 1)
-              }}
-            >
-              Retry
-            </button>
+            {errorSource !== 'missing_app_id' && (
+              <button
+                type="button"
+                className="cr-retry"
+                onClick={() => {
+                  setErrorSource('ready_timeout')
+                  setAttempt((n) => n + 1)
+                }}
+              >
+                Retry
+              </button>
+            )}
           </div>
         </div>
       )}

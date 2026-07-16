@@ -1,7 +1,8 @@
 import React, { useRef, useLayoutEffect, useEffect, Suspense, useState } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
-import { useGLTF, PerspectiveCamera, useTexture } from '@react-three/drei'
+import { useFrame, useGraph, useLoader, useThree } from '@react-three/fiber'
+import { PerspectiveCamera, useTexture } from '@react-three/drei'
 import { MirroredRepeatWrapping, Vector2, Vector3 } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
 import shipModel from '../models/spaceship.gltf'
 
@@ -15,10 +16,11 @@ import { GAMEPLAY } from '../constants'
 const v = new Vector3()
 
 function ShipModel(props, { children }) {
-  // The bundled spaceship.gltf is uncompressed, so no DRACOLoader is needed.
-  // Passing `false` disables Draco decoding; the previous gstatic decoder URL
-  // was a dead, CSP-blocked reference that never loaded.
-  const { nodes, materials } = useGLTF(shipModel, false)
+  // The bundled spaceship.gltf is uncompressed. Load it directly instead of
+  // pulling drei's optional Draco helper (and its dead external decoder URL)
+  // into a package whose CSP intentionally permits self-hosted assets only.
+  const gltf = useLoader(GLTFLoader, shipModel)
+  const { nodes, materials } = useGraph(gltf.scene)
   // tie ship and camera ref to store to allow getting at them elsewhere
   const ship = useStore((s) => s.ship)
   const camera = useStore((s) => s.camera)
@@ -292,8 +294,8 @@ function ShipModel(props, { children }) {
 }
 
 
-// Uncompressed model — no DRACOLoader (see ShipModel above).
-useGLTF.preload(shipModel, false)
+// Preload the uncompressed model with the same direct loader used above.
+useLoader.preload(GLTFLoader, shipModel)
 
 function Loading() {
   return (
