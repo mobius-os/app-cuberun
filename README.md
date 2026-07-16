@@ -49,7 +49,7 @@ This fork includes a Mobius package:
   fullscreen/immersive shell chrome, bridges high-score storage, and emits
   `app_ready`, `error`, `run_ended`, `high_score`, and `item_updated` signals.
 * `build/` is a prebuilt CubeRun static bundle served by Mobius under
-  `/app-assets/by-id/<app_id>/`.
+  `/app-embeds/by-id/<app_id>/`.
 * `src/` is the editable third-party game source. Gameplay knobs live in
   `src/constants/index.js`.
 * `icon.png` is the Mobius home-screen icon.
@@ -79,4 +79,4 @@ Rebuild and repackage loop:
 5. Run `npm run verify:mobius`.
 6. Reinstall the app package in Mobius and smoke the wrapper. The package is
    not marked offline-capable until every build asset is proven cached under
-   `/app-assets/by-id/cuberun/`.
+   `/app-embeds/by-id/cuberun/`.
