@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 // probe: this wrapper has an opaque origin, so probing would require broad
 // CORS and would download the game twice. The source-bound ready heartbeat is
 // the only success signal; timeout/retry owns every missing or blocked case.
-const ASSET_BUST = 'v=20260715a'
+const ASSET_BUST = 'v=20260721a'
 const READY_TIMEOUT_MS = 12000
 const HIGH_SCORES_PATH = 'highscores.json'
 
@@ -120,6 +120,11 @@ const CSS = `
 
 export default function CubeRunApp({ appId }) {
   const [attempt, setAttempt] = useState(0)
+  // Do not create the nested document until its message receiver is installed.
+  // A cached child can execute and post `cuberun:ready` before a passive effect
+  // in this wrapper runs; mounting in a later render gives the listener a real
+  // happens-before relationship with every child heartbeat.
+  const [messageBridgeArmed, setMessageBridgeArmed] = useState(false)
   const hasAppId = appId !== undefined && appId !== null && `${appId}`.trim() !== ''
   const src = hasAppId
     ? `/app-embeds/by-id/${appId}/index.html?${ASSET_BUST}&attempt=${attempt}`
@@ -214,13 +219,13 @@ export default function CubeRunApp({ appId }) {
   }, [attempt, appId, hasAppId])
 
   useEffect(() => {
-    if (phase !== 'loading') return
+    if (phase !== 'loading' || !messageBridgeArmed) return
     const timeout = setTimeout(() => {
       setErrorSource('ready_timeout')
       setPhase('error')
     }, READY_TIMEOUT_MS)
     return () => clearTimeout(timeout)
-  }, [phase, attempt])
+  }, [phase, attempt, messageBridgeArmed])
 
   useEffect(() => {
     if (phase === 'ready' && !readySignaled.current) {
@@ -255,6 +260,9 @@ export default function CubeRunApp({ appId }) {
         return
       }
       if (data.type === 'cuberun:ready') {
+        // Acknowledge every heartbeat before revealing the frame. The child
+        // retries until this arrives, so a lost task can never strand the UI.
+        postToFrame({ type: 'cuberun:ready-ack' })
         setPhase('ready')
         // If the shell backgrounded us while the game was still loading, apply
         // the hidden shim now that the inner document exists.
@@ -326,6 +334,7 @@ export default function CubeRunApp({ appId }) {
     }
 
     window.addEventListener('message', handleMessage)
+    setMessageBridgeArmed(true)
     return () => {
       window.removeEventListener('message', handleMessage)
       for (const handle of navHandlesRef.current.values()) {
@@ -335,7 +344,9 @@ export default function CubeRunApp({ appId }) {
     }
   }, [applyInnerVisibility, loadHighScores, postToFrame])
 
-  const showFrame = Boolean(src) && (phase === 'loading' || phase === 'ready')
+  const showFrame = messageBridgeArmed
+    && Boolean(src)
+    && (phase === 'loading' || phase === 'ready')
 
   const showSpinner = phase === 'loading'
   const showError = phase === 'error'
@@ -362,6 +373,7 @@ export default function CubeRunApp({ appId }) {
             // Keep the branded overlay and the browser error document hidden
             // until the exact child window proves its scripts actually ran.
             applyInnerVisibility(hiddenRef.current)
+            postToFrame({ type: 'cuberun:ready-probe' })
           }}
           onError={() => {
             setErrorSource('iframe')

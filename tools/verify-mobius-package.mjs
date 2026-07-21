@@ -9,6 +9,7 @@ const staticAssets = manifest.static_assets || {}
 const errors = []
 const wrapper = fs.readFileSync(path.join(root, 'index.jsx'), 'utf8')
 const gameEntry = fs.readFileSync(path.join(root, 'src/index.js'), 'utf8')
+const publicEntry = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8')
 const shipSource = fs.readFileSync(path.join(root, 'src/components/Ship.js'), 'utf8')
 
 if (wrapper.includes('/app-assets/')) {
@@ -25,9 +26,28 @@ if (!wrapper.includes('sandbox="allow-scripts allow-forms allow-pointer-lock"'))
 if (!wrapper.includes("data.type === 'cuberun:navigating'")) {
   errors.push('wrapper does not re-cover the frame before a later navigation')
 }
+if (!wrapper.includes('messageBridgeArmed')
+    || !wrapper.includes("postToFrame({ type: 'cuberun:ready-probe' })")
+    || !wrapper.includes("postToFrame({ type: 'cuberun:ready-ack' })")) {
+  errors.push('wrapper does not gate the frame behind the acknowledged ready bridge')
+}
 if (!gameEntry.includes("post('cuberun:navigating')")
-    || !gameEntry.includes("addEventListener('beforeunload'")) {
+    && !gameEntry.includes("postMessage({ type: 'cuberun:navigating' }")) {
   errors.push('game entry does not source-signal before full-document navigation')
+}
+if (!gameEntry.includes("addEventListener('beforeunload'")) {
+  errors.push('game entry does not source-signal before full-document navigation')
+}
+if (!gameEntry.includes('startReadyHandshake()')) {
+  errors.push('game entry does not retry readiness until wrapper acknowledgement')
+}
+if (!publicEntry.includes("mq('(pointer: coarse)').matches")
+    || !publicEntry.includes("addEventListener('click', reqFs, { once: true")) {
+  errors.push('fullscreen must be one completed coarse-pointer gesture')
+}
+if (publicEntry.includes("['pointerdown', 'touchstart', 'click']")
+    || publicEntry.includes('capture: true')) {
+  errors.push('fullscreen must not compete with game input in capture phase')
 }
 if (shipSource.includes('useGLTF') || shipSource.includes('DRACOLoader')) {
   errors.push('uncompressed ship model must not retain the external Draco loader path')

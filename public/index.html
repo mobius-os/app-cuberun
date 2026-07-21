@@ -21,31 +21,26 @@
   <div id="root"></div>
   <!-- For August -->
   <script>
-    // Cover the Android display cutout on the first user gesture by taking the
-    // TOP document fullscreen — all Möbius frames are same-origin, and the shell
-    // / standalone page carry viewport-fit=cover, which is what makes Android
-    // paint content into the cutout. Falls back to fullscreening this game
-    // frame. The Fullscreen API is gesture-gated, so this can only fire on a
-    // tap, never on load; no-op on iOS and when already (launched) fullscreen.
+    // Cover the Android display cutout on the first completed tap. CubeRun is
+    // deliberately hosted in an opaque cross-origin sandbox, so request
+    // fullscreen only for this document and let the browser promote the nested
+    // fullscreen chain. Desktop pointers keep the normal windowed experience.
     (function () {
       if (window.top === window.self) return;
       var mq = window.matchMedia;
+      if (!mq || !mq('(pointer: coarse)').matches) return;
       if (mq && mq('(display-mode: fullscreen)').matches) return;
-      function topDoc(){ try { return window.top.document; } catch (e) { return null; } }
-      function fsOn(){ try { var d = topDoc(); return !!(d && d.fullscreenElement) || !!document.fullscreenElement; } catch (e) { return !!document.fullscreenElement; } }
-      function tryFs(getEl, next){
-        var el; try { el = getEl(); } catch (e) { next && next(); return; }
-        if (!el || !el.requestFullscreen) { next && next(); return; }
-        var p; try { p = el.requestFullscreen(); } catch (e) { next && next(); return; }
-        if (p && p.catch) p.catch(function () { next && next(); });
-      }
+      var requested = false;
       function reqFs(){
-        if (fsOn()) return;
-        tryFs(function () { var d = topDoc(); return d && d.documentElement; }, function () {
-          tryFs(function () { return document.documentElement; }, null);
-        });
+        if (requested || document.fullscreenElement) return;
+        requested = true;
+        var el = document.documentElement;
+        if (!el || !el.requestFullscreen) return;
+        var promise;
+        try { promise = el.requestFullscreen(); } catch (e) { return; }
+        if (promise && promise.catch) promise.catch(function () {});
       }
-      ['pointerdown', 'touchstart', 'click'].forEach(function (t) { window.addEventListener(t, reqFs, { capture: true, passive: true }); });
+      window.addEventListener('click', reqFs, { once: true, passive: true });
     })();
   </script>
 </body>
