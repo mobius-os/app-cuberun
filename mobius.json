@@ -1,7 +1,7 @@
 {
   "id": "cuberun",
   "name": "CubeRun",
-  "version": "1.0.2-mobius.25",
+  "version": "1.0.2-mobius.26",
   "description": "Neon 3D runner game packaged for Mobius as a durable static app.",
   "author": "Adam Karlsten",
   "license": "MIT",

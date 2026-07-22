@@ -41,13 +41,14 @@ if (!gameEntry.includes("addEventListener('beforeunload'")) {
 if (!gameEntry.includes('startReadyHandshake()')) {
   errors.push('game entry does not retry readiness until wrapper acknowledgement')
 }
-if (!publicEntry.includes("mq('(pointer: coarse)').matches")
-    || !publicEntry.includes("addEventListener('click', reqFs, { once: true")) {
-  errors.push('fullscreen must be one completed coarse-pointer gesture')
+if (publicEntry.includes('requestFullscreen')
+    || wrapper.includes('allow="autoplay; fullscreen; gamepad"')) {
+  errors.push('the nested game must not request browser fullscreen implicitly')
 }
-if (publicEntry.includes("['pointerdown', 'touchstart', 'click']")
-    || publicEntry.includes('capture: true')) {
-  errors.push('fullscreen must not compete with game input in capture phase')
+if (!wrapper.includes('aria-pressed={immersive}')
+    || !wrapper.includes("phase === 'ready' &&")
+    || !wrapper.includes("setImmersive(false)")) {
+  errors.push('focus mode must be explicit, ready-gated, and reversibly released')
 }
 if (shipSource.includes('useGLTF') || shipSource.includes('DRACOLoader')) {
   errors.push('uncompressed ship model must not retain the external Draco loader path')
