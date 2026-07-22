@@ -45,10 +45,15 @@ if (publicEntry.includes('requestFullscreen')
     || wrapper.includes('allow="autoplay; fullscreen; gamepad"')) {
   errors.push('the nested game must not request browser fullscreen implicitly')
 }
-if (!wrapper.includes('aria-pressed={immersive}')
+if (!wrapper.includes('aria-label="Enter CubeRun focus mode"')
     || !wrapper.includes("phase === 'ready' &&")
-    || !wrapper.includes("setImmersive(false)")) {
-  errors.push('focus mode must be explicit, ready-gated, and reversibly released')
+    || !wrapper.includes('onClick={() => postImmersive(true)}')
+    || !wrapper.includes('return () => postImmersive(false)')
+    || !wrapper.includes("if (event.key === 'Escape') postImmersive(false)")
+    || !wrapper.includes('if (hidden) postImmersive(false)')
+    || wrapper.includes('aria-pressed={immersive}')
+    || wrapper.includes("'Exit focus'")) {
+  errors.push('focus entry must be explicit and stateless, with every exit path releasing the shell lease')
 }
 if (shipSource.includes('useGLTF') || shipSource.includes('DRACOLoader')) {
   errors.push('uncompressed ship model must not retain the external Draco loader path')

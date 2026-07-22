@@ -62,11 +62,11 @@ const CSS = `
 }
 .cr-focus {
   position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: calc(env(safe-area-inset-left, 0px) + 10px);
   z-index: 20;
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 44px; padding: 0 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0;
   border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg) 84%, transparent);
@@ -74,11 +74,10 @@ const CSS = `
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  font-family: var(--font); font-size: 13px; font-weight: 700;
   cursor: pointer;
 }
 .cr-focus:active { transform: scale(0.97); }
-.cr-focus__icon { width: 17px; height: 17px; flex: none; }
+.cr-focus__icon { width: 18px; height: 18px; flex: none; }
 .cr-overlay {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -142,7 +141,6 @@ const CSS = `
 
 export default function CubeRunApp({ appId }) {
   const [attempt, setAttempt] = useState(0)
-  const [immersive, setImmersive] = useState(false)
   // Do not create the nested document until its message receiver is installed.
   // A cached child can execute and post `cuberun:ready` before a passive effect
   // in this wrapper runs; mounting in a later render gives the listener a real
@@ -176,29 +174,28 @@ export default function CubeRunApp({ appId }) {
     }
   }, [appId])
 
-  // Opening CubeRun must be a stable, ordinary app transition. The old wrapper
-  // requested immersive mode automatically (first on mount, later on ready),
-  // while the nested document separately requested browser fullscreen on its
-  // first game tap. Those two implicit takeovers raced the shell and made the
-  // game difficult to leave. Focus mode is now an explicit, reversible owner
-  // action; its exit control remains in this wrapper above the game frame.
+  // Opening CubeRun must be a stable, ordinary app transition. Entry into
+  // immersive mode is a one-shot user intent, not local toggle state: the shell
+  // owns the active immersive lease and its guaranteed top-left exit button.
+  // Keeping no mirrored boolean here is important because the shell can clear
+  // its lease independently; a stale app-side `true` made the first re-entry
+  // tap merely clear local state instead of entering again. In immersive mode
+  // the shell button sits above this one at the same top-left location.
   useEffect(() => {
-    if (!immersive) return
-    postImmersive(true)
     return () => postImmersive(false)
-  }, [immersive, postImmersive])
+  }, [postImmersive])
 
   useEffect(() => {
-    if (phase !== 'ready') setImmersive(false)
-  }, [phase])
+    if (phase !== 'ready') postImmersive(false)
+  }, [phase, postImmersive])
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') setImmersive(false)
+      if (event.key === 'Escape') postImmersive(false)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [postImmersive])
 
   const postToFrame = useCallback((message) => {
     try {
@@ -236,12 +233,12 @@ export default function CubeRunApp({ appId }) {
         const hidden = data.visible === false
         applyInnerVisibility(hidden)
         // A backgrounded game must never retain a hidden immersive lease.
-        if (hidden) setImmersive(false)
+        if (hidden) postImmersive(false)
       }
     }
     window.addEventListener('message', onShellMessage)
     return () => window.removeEventListener('message', onShellMessage)
-  }, [applyInnerVisibility])
+  }, [applyInnerVisibility, postImmersive])
 
   const loadHighScores = useCallback(async () => {
     try {
@@ -428,28 +425,16 @@ export default function CubeRunApp({ appId }) {
         <button
           type="button"
           className="cr-focus"
-          aria-pressed={immersive}
-          aria-label={immersive ? 'Exit CubeRun focus mode' : 'Enter CubeRun focus mode'}
-          onClick={() => setImmersive((value) => !value)}
+          aria-label="Enter CubeRun focus mode"
+          title="Focus CubeRun"
+          onClick={() => postImmersive(true)}
         >
           <svg className="cr-focus__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            {immersive ? (
-              <>
-                <path d="M8 3v5H3" /><path d="m3 3 5 5" />
-                <path d="M16 3v5h5" /><path d="m21 3-5 5" />
-                <path d="M8 21v-5H3" /><path d="m3 21 5-5" />
-                <path d="M16 21v-5h5" /><path d="m21 21-5-5" />
-              </>
-            ) : (
-              <>
-                <path d="M8 3H3v5" /><path d="m3 3 5 5" />
-                <path d="M16 3h5v5" /><path d="m21 3-5 5" />
-                <path d="M8 21H3v-5" /><path d="m3 21 5-5" />
-                <path d="M16 21h5v-5" /><path d="m21 21-5-5" />
-              </>
-            )}
+            <path d="M8 3H3v5" /><path d="m3 3 5 5" />
+            <path d="M16 3h5v5" /><path d="m21 3-5 5" />
+            <path d="M8 21H3v-5" /><path d="m3 21 5-5" />
+            <path d="M16 21h5v-5" /><path d="m21 21-5-5" />
           </svg>
-          {immersive ? 'Exit focus' : 'Focus'}
         </button>
       )}
 
