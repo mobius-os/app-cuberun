@@ -130,11 +130,28 @@ export default function CubeRunApp({ appId }) {
     ? `/app-embeds/by-id/${appId}/index.html?${ASSET_BUST}&attempt=${attempt}`
     : null
 
-  // Ask the shell to hide its top bar so the game fills the whole screen,
-  // including under the camera notch (the shell switches the iOS status bar
-  // to translucent and drops its header). Released on unmount so leaving the
-  // game restores normal chrome.
+  // 'loading' (iframe mounted behind branding) → 'ready'
+  // (the source-bound inner heartbeat arrived). An iframe load event is not a
+  // readiness signal: Chromium fires it for an XFO/CSP-blocked error document.
+  // 'error' replaces the above on a browser error or heartbeat timeout.
+  const [phase, setPhase] = useState(hasAppId ? 'loading' : 'error')
+  const [errorSource, setErrorSource] = useState(
+    hasAppId ? 'ready_timeout' : 'missing_app_id',
+  )
+  const iframeRef = useRef(null)
+  const readySignaled = useRef(false)
+  const navHandlesRef = useRef(new Map())
+
+  // Ask the shell to hide its top bar only after the nested game has proved it
+  // is ready. Requesting immersive during the shell's opening transition makes
+  // that transition retarget from a normal app surface to a full-screen
+  // takeover mid-beat; the resulting cancel/snap is especially violent on a
+  // phone. Readiness is the existing authoritative launch boundary, so wait for
+  // it instead of adding another timer or transition protocol. Released when
+  // readiness is lost or the wrapper unmounts, restoring normal shell chrome.
   useEffect(() => {
+    if (phase !== 'ready') return
+
     const post = (value) => {
       try {
         window.parent.postMessage(
@@ -147,19 +164,7 @@ export default function CubeRunApp({ appId }) {
     }
     post(true)
     return () => post(false)
-  }, [appId])
-
-  // 'loading' (iframe mounted behind branding) → 'ready'
-  // (the source-bound inner heartbeat arrived). An iframe load event is not a
-  // readiness signal: Chromium fires it for an XFO/CSP-blocked error document.
-  // 'error' replaces the above on a browser error or heartbeat timeout.
-  const [phase, setPhase] = useState(hasAppId ? 'loading' : 'error')
-  const [errorSource, setErrorSource] = useState(
-    hasAppId ? 'ready_timeout' : 'missing_app_id',
-  )
-  const iframeRef = useRef(null)
-  const readySignaled = useRef(false)
-  const navHandlesRef = useRef(new Map())
+  }, [appId, phase])
 
   const postToFrame = useCallback((message) => {
     try {
