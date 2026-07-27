@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Expand } from '@openai/apps-sdk-ui/components/Icon'
 
 // Build key for the nested entry document. There is deliberately no fetch
 // probe: this wrapper has an opaque origin, so probing would require broad
@@ -429,12 +430,7 @@ export default function CubeRunApp({ appId }) {
           title="Focus CubeRun"
           onClick={() => postImmersive(true)}
         >
-          <svg className="cr-focus__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M8 3H3v5" /><path d="m3 3 5 5" />
-            <path d="M16 3h5v5" /><path d="m21 3-5 5" />
-            <path d="M8 21H3v-5" /><path d="m3 21 5-5" />
-            <path d="M16 21h5v-5" /><path d="m21 21-5-5" />
-          </svg>
+          <Expand className="cr-focus__icon" aria-hidden="true" />
         </button>
       )}
 
