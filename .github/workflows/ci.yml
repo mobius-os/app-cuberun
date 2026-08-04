@@ -34,7 +34,4 @@ jobs:
         run: npm run verify:mobius
 
       - name: Compile-smoke the Möbius wrapper (index.jsx)
-        run: >
-          npx --yes esbuild@0.25.12 index.jsx
-          --bundle --format=esm --jsx=automatic --packages=external
-          --outfile=/dev/null
+        run: npx --yes rolldown@1.2.2 -c rolldown.config.mjs
