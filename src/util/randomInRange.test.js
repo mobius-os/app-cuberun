@@ -1,4 +1,7 @@
-import randomInRange from './randomInRange'
+import assert from 'node:assert/strict'
+import { afterEach, describe, it } from 'node:test'
+
+import randomInRange from './randomInRange.js'
 
 describe('randomInRange', () => {
   const originalRandom = Math.random
@@ -8,20 +11,17 @@ describe('randomInRange', () => {
   })
 
   it('supports negative-to-zero ranges', () => {
-    Math.random = jest.fn()
-      .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.999)
+    const values = [0, 0.999]
+    Math.random = () => values.shift()
 
-    expect(randomInRange(-200, 0)).toBe(-200)
-    expect(randomInRange(-200, 0)).toBe(0)
+    assert.equal(randomInRange(-200, 0), -200)
+    assert.equal(randomInRange(-200, 0), 0)
   })
 
   it('supports positive and symmetric ranges', () => {
-    Math.random = jest.fn()
-      .mockReturnValueOnce(0.5)
-      .mockReturnValueOnce(0.5)
+    Math.random = () => 0.5
 
-    expect(randomInRange(0, 200)).toBe(100)
-    expect(randomInRange(-5, 5)).toBe(0)
+    assert.equal(randomInRange(0, 200), 100)
+    assert.equal(randomInRange(-5, 5), 0)
   })
 })

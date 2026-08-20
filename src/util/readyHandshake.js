@@ -1,4 +1,4 @@
-import { isTrustedWrapperMessage } from './storage'
+import { isTrustedWrapperMessage } from './storage.js'
 
 export const READY_RETRY_MS = 500
 

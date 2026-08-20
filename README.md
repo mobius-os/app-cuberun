@@ -68,15 +68,13 @@ Data contracts:
 
 Rebuild and repackage loop:
 
-1. Install dependencies with `npm install` or `yarn install`.
-2. If the old CRA toolchain fails, run `tools/fix-postcss-safe-parser.sh` and
-   `tools/fix-three-loaderutils.sh`.
-3. Run `npm run build`. The script sets the Webpack 4/OpenSSL compatibility
-   flag needed on current Node versions. The build must keep relative asset paths
-   (`./static/...`), not root-absolute paths.
-4. Regenerate or update `mobius.json` `static_assets` to match the new hashed
-   files in `build/`.
-5. Run `npm run verify:mobius`.
-6. Reinstall the app package in Mobius and smoke the wrapper. The package is
+1. Use Node.js 20.19+ or 22.12+, then install the locked dependencies with
+   `npm ci`.
+2. Run `npm run verify` to exercise the dependency-free unit tests and create
+   a clean Vite production build with relative asset paths.
+3. Run `npm run package:mobius` to regenerate `mobius.json` from the exact
+   contents of `build/` and stage the generated package files.
+4. Run `npm run verify:mobius`.
+5. Reinstall the app package in Mobius and smoke the wrapper. The package is
    not marked offline-capable until every build asset is proven cached under
    `/app-embeds/by-id/cuberun/`.

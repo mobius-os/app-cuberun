@@ -5,10 +5,10 @@ import { Expand } from '@openai/apps-sdk-ui/components/Icon'
 // probe: this wrapper has an opaque origin, so probing would require broad
 // CORS and would download the game twice. The source-bound ready heartbeat is
 // the only success signal; timeout/retry owns every missing or blocked case.
-// Bumped when the packaged entry stopped installing its implicit first-tap
-// fullscreen handler. Existing devices may hold the prior HTML in their HTTP
-// cache even after the install-managed static mirror is refreshed.
-const ASSET_BUST = 'v=20260722b'
+// Bumped when the packaged entry opted into safe user-opened destination tabs.
+// Existing devices may hold the prior response sandbox in their HTTP cache
+// even after the platform starts serving the revised policy.
+const ASSET_BUST = 'v=20260820a'
 const READY_TIMEOUT_MS = 12000
 const HIGH_SCORES_PATH = 'highscores.json'
 
@@ -403,7 +403,7 @@ export default function CubeRunApp({ appId }) {
           title="CubeRun"
           src={src}
           className="cr-frame"
-          sandbox="allow-scripts allow-forms allow-pointer-lock"
+          sandbox="allow-scripts allow-forms allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
           style={{
             opacity: phase === 'ready' ? 1 : 0,
             pointerEvents: phase === 'ready' ? 'auto' : 'none',
