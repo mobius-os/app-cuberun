@@ -1,10 +1,8 @@
 name: CI
 
-# CubeRun ships a prebuilt CRA bundle wrapped by a Möbius mini-app (index.jsx).
-# CI validates the two things that actually change here: the Möbius package
-# manifest (verify:mobius), the storage/message unit tests, and that the wrapper
-# JSX compiles the way the Möbius compiler does. The shipped game remains the
-# checked-in prebuilt build/ tree, so CI does not rebuild it implicitly.
+# CubeRun ships a checked-in Vite bundle wrapped by a Möbius mini-app
+# (index.jsx). CI proves that the source recreates that exact package, then
+# compile-smokes the wrapper the way the Möbius compiler does.
 on:
   push:
     branches: [main]
@@ -22,16 +20,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: yarn
+          cache: npm
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
-      - name: Run unit tests
-        run: yarn test --runInBand
+      - name: Test and build the game
+        run: npm run verify
+
+      - name: Recreate the Möbius package
+        run: npm run package:mobius
 
       - name: Verify mobius package (static_assets manifest)
         run: npm run verify:mobius
+
+      - name: Verify checked-in package is current
+        run: git diff --exit-code HEAD -- build mobius.json
 
       - name: Compile-smoke the Möbius wrapper (index.jsx)
         run: npx --yes rolldown@1.2.2 -c rolldown.config.mjs

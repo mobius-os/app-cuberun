@@ -1,3 +1,6 @@
+import assert from 'node:assert/strict'
+import { describe, it, mock } from 'node:test'
+
 import {
   HIGH_SCORES_KEY,
   isTrustedWrapperMessage,
@@ -9,26 +12,26 @@ import {
   readMusicEnabled,
   writeHighScores,
   writeMusicEnabled,
-} from './storage'
+} from './storage.js'
 
 function createStorage(initial = {}) {
   const values = new Map(Object.entries(initial))
   return {
-    getItem: jest.fn((key) => values.has(key) ? values.get(key) : null),
-    setItem: jest.fn((key, value) => values.set(key, value)),
+    getItem: mock.fn((key) => values.has(key) ? values.get(key) : null),
+    setItem: mock.fn((key, value) => values.set(key, value)),
   }
 }
 
 describe('storage helpers', () => {
   it('normalizes high scores to three descending numbers', () => {
-    expect(normalizeHighScores([10, '30.4', -2, 'bad', 20, 40])).toEqual([40, 30, 20])
-    expect(normalizeHighScores(null)).toEqual([0, 0, 0])
+    assert.deepEqual(normalizeHighScores([10, '30.4', -2, 'bad', 20, 40]), [40, 30, 20])
+    assert.deepEqual(normalizeHighScores(null), [0, 0, 0])
   })
 
   it('falls back for corrupt high-score values', () => {
     const storage = createStorage({ [HIGH_SCORES_KEY]: 'not json' })
 
-    expect(readHighScores(storage)).toEqual([0, 0, 0])
+    assert.deepEqual(readHighScores(storage), [0, 0, 0])
   })
 
   it('reads legacy high scores without writing the bare key', () => {
@@ -36,11 +39,12 @@ describe('storage helpers', () => {
       [LEGACY_HIGH_SCORES_KEY]: JSON.stringify([100, 50, 10]),
     })
 
-    expect(readHighScores(storage)).toEqual([100, 50, 10])
+    assert.deepEqual(readHighScores(storage), [100, 50, 10])
     writeHighScores([150, 100, 50], storage)
 
-    expect(storage.setItem).toHaveBeenCalledWith(HIGH_SCORES_KEY, JSON.stringify([150, 100, 50]))
-    expect(storage.setItem).not.toHaveBeenCalledWith(LEGACY_HIGH_SCORES_KEY, expect.any(String))
+    const writes = storage.setItem.mock.calls.map((call) => call.arguments)
+    assert.deepEqual(writes[0], [HIGH_SCORES_KEY, JSON.stringify([150, 100, 50])])
+    assert.equal(writes.some(([key]) => key === LEGACY_HIGH_SCORES_KEY), false)
   })
 
   it('falls back for corrupt music settings and writes only the namespaced key', () => {
@@ -49,11 +53,12 @@ describe('storage helpers', () => {
       [LEGACY_MUSIC_ENABLED_KEY]: 'also bad',
     })
 
-    expect(readMusicEnabled(storage)).toBe(false)
+    assert.equal(readMusicEnabled(storage), false)
     writeMusicEnabled(true, storage)
 
-    expect(storage.setItem).toHaveBeenCalledWith(MUSIC_ENABLED_KEY, 'true')
-    expect(storage.setItem).not.toHaveBeenCalledWith(LEGACY_MUSIC_ENABLED_KEY, expect.any(String))
+    const writes = storage.setItem.mock.calls.map((call) => call.arguments)
+    assert.deepEqual(writes[0], [MUSIC_ENABLED_KEY, 'true'])
+    assert.equal(writes.some(([key]) => key === LEGACY_MUSIC_ENABLED_KEY), false)
   })
 
   it('can read a valid legacy music setting during migration', () => {
@@ -61,12 +66,13 @@ describe('storage helpers', () => {
       [LEGACY_MUSIC_ENABLED_KEY]: 'true',
     })
 
-    expect(readMusicEnabled(storage)).toBe(true)
+    assert.equal(readMusicEnabled(storage), true)
   })
 
   it('renders with defaults when opaque-frame localStorage is unavailable', () => {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage')
-    Object.defineProperty(window, 'localStorage', {
+    const previousWindow = globalThis.window
+    globalThis.window = {}
+    Object.defineProperty(globalThis.window, 'localStorage', {
       configurable: true,
       get() {
         throw new DOMException('Access denied', 'SecurityError')
@@ -74,12 +80,13 @@ describe('storage helpers', () => {
     })
 
     try {
-      expect(readHighScores()).toEqual([0, 0, 0])
-      expect(readMusicEnabled()).toBe(false)
-      expect(writeHighScores([30, 20, 10])).toEqual([30, 20, 10])
-      expect(writeMusicEnabled(true)).toBe(true)
+      assert.deepEqual(readHighScores(), [0, 0, 0])
+      assert.equal(readMusicEnabled(), false)
+      assert.deepEqual(writeHighScores([30, 20, 10]), [30, 20, 10])
+      assert.equal(writeMusicEnabled(true), true)
     } finally {
-      Object.defineProperty(window, 'localStorage', descriptor)
+      if (previousWindow === undefined) delete globalThis.window
+      else globalThis.window = previousWindow
     }
   })
 
@@ -89,29 +96,29 @@ describe('storage helpers', () => {
       setItem() { throw new DOMException('Access denied', 'SecurityError') },
     }
 
-    expect(readHighScores(storage)).toEqual([0, 0, 0])
-    expect(readMusicEnabled(storage)).toBe(false)
-    expect(writeHighScores([3, 2, 1], storage)).toEqual([3, 2, 1])
-    expect(writeMusicEnabled(true, storage)).toBe(true)
+    assert.deepEqual(readHighScores(storage), [0, 0, 0])
+    assert.equal(readMusicEnabled(storage), false)
+    assert.deepEqual(writeHighScores([3, 2, 1], storage), [3, 2, 1])
+    assert.equal(writeMusicEnabled(true, storage), true)
   })
 
   it('trusts only the wrapper window, including its opaque origin', () => {
     const wrapper = {}
-    expect(isTrustedWrapperMessage(
+    assert.equal(isTrustedWrapperMessage(
       { source: wrapper, origin: 'null' }, wrapper, 'https://mobius.test',
-    )).toBe(true)
-    expect(isTrustedWrapperMessage(
+    ), true)
+    assert.equal(isTrustedWrapperMessage(
       { source: wrapper, origin: 'https://mobius.test' },
       wrapper,
       'https://mobius.test',
-    )).toBe(true)
-    expect(isTrustedWrapperMessage(
+    ), true)
+    assert.equal(isTrustedWrapperMessage(
       { source: {}, origin: 'null' }, wrapper, 'https://mobius.test',
-    )).toBe(false)
-    expect(isTrustedWrapperMessage(
+    ), false)
+    assert.equal(isTrustedWrapperMessage(
       { source: wrapper, origin: 'https://evil.test' },
       wrapper,
       'https://mobius.test',
-    )).toBe(false)
+    ), false)
   })
 })

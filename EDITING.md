@@ -44,15 +44,14 @@ Good first experiments:
 
 ## Rebuild and package
 
-1. Run `npm install` or `yarn install`.
-2. If the old CRA dependencies fail locally, run:
-   - `tools/fix-postcss-safe-parser.sh`
-   - `tools/fix-three-loaderutils.sh`
-3. Run `npm run build`. The script sets the Webpack 4/OpenSSL compatibility
-   flag needed on current Node versions.
-4. Update `mobius.json` `static_assets` for any new hashed filenames in
-   `build/`.
-5. Run `npm run verify:mobius`.
-6. Reinstall the package in Mobius and smoke the wrapper. Do not mark the app
+CubeRun's Vite toolchain requires Node.js 20.19+ or 22.12+.
+
+1. Run `npm ci`.
+2. Run `npm run verify` to exercise the dependency-free unit tests and create
+   a clean Vite production build.
+3. Run `npm run package:mobius` to update `mobius.json` from the exact contents
+   of `build/` and stage the generated package files.
+4. Run `npm run verify:mobius`.
+5. Reinstall the package in Mobius and smoke the wrapper. Do not mark the app
    offline-capable until every static asset is proven cached under
-   `/app-assets/by-id/cuberun/`.
+   `/app-embeds/by-id/<app_id>/`.

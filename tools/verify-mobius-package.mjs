@@ -8,9 +8,9 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 const staticAssets = manifest.static_assets || {}
 const errors = []
 const wrapper = fs.readFileSync(path.join(root, 'index.jsx'), 'utf8')
-const gameEntry = fs.readFileSync(path.join(root, 'src/index.js'), 'utf8')
-const publicEntry = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8')
-const shipSource = fs.readFileSync(path.join(root, 'src/components/Ship.js'), 'utf8')
+const gameEntry = fs.readFileSync(path.join(root, 'src/index.jsx'), 'utf8')
+const gameDocument = fs.readFileSync(path.join(root, 'index.html'), 'utf8')
+const shipSource = fs.readFileSync(path.join(root, 'src/components/Ship.jsx'), 'utf8')
 
 if (wrapper.includes('/app-assets/')) {
   errors.push(
@@ -41,7 +41,7 @@ if (!gameEntry.includes("addEventListener('beforeunload'")) {
 if (!gameEntry.includes('startReadyHandshake()')) {
   errors.push('game entry does not retry readiness until wrapper acknowledgement')
 }
-if (publicEntry.includes('requestFullscreen')
+if (gameDocument.includes('requestFullscreen')
     || wrapper.includes('allow="autoplay; fullscreen; gamepad"')) {
   errors.push('the nested game must not request browser fullscreen implicitly')
 }

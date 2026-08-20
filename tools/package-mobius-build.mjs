@@ -31,10 +31,9 @@ fs.writeFileSync(
   `${JSON.stringify(Object.keys(manifest.static_assets), null, 2)}\n`,
 )
 
-// build/static is intentionally ignored for ordinary development, but a
-// release commit must contain every generated source named by mobius.json.
-// Stage exactly this freshly enumerated build and the rewritten manifest;
-// obsolete bundles were already removed by react-scripts' clean build.
+// Generated output is not hand-edited, but a release commit must contain every
+// source named by mobius.json. Stage exactly this freshly enumerated build and
+// the rewritten manifest; obsolete bundles were removed by Vite's clean build.
 execFileSync('git', ['add', '-u', '--', buildRoot], {
   cwd: root,
   stdio: 'inherit',
