@@ -1,6 +1,7 @@
 # Generated build output and vendored deps are not hand-written source.
 dist/
 .build/
+.rolldown-smoke/
 node_modules/
 # Manifest static_assets are install-managed (re-fetched from the manifest,
 # tracked in .mobius-static-assets.json), not edited source — keep both the
