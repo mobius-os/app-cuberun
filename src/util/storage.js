@@ -2,6 +2,7 @@ export const HIGH_SCORES_KEY = 'cuberun:highscores'
 export const LEGACY_HIGH_SCORES_KEY = 'highscores'
 export const MUSIC_ENABLED_KEY = 'cuberun:musicEnabled'
 export const LEGACY_MUSIC_ENABLED_KEY = 'musicEnabled'
+export const STORAGE_MIGRATION_KEY = 'cuberun:storage-migration-v1'
 
 const DEFAULT_HIGH_SCORES = [0, 0, 0]
 
@@ -54,8 +55,34 @@ function safeSet(storage, key, value) {
   }
 }
 
+export function migrateLegacyStorage(storage) {
+  const target = storage ?? browserStorage()
+  if (!target || safeGet(target, STORAGE_MIGRATION_KEY) === '1') return
+
+  const currentScores = safeParseJson(safeGet(target, HIGH_SCORES_KEY))
+  const legacyScores = safeParseJson(safeGet(target, LEGACY_HIGH_SCORES_KEY))
+  const scores = Array.isArray(currentScores) ? currentScores : legacyScores
+  if (Array.isArray(scores)) {
+    safeSet(target, HIGH_SCORES_KEY, JSON.stringify(normalizeHighScores(scores)))
+  }
+
+  const currentMusic = safeParseJson(safeGet(target, MUSIC_ENABLED_KEY))
+  const legacyMusic = safeParseJson(safeGet(target, LEGACY_MUSIC_ENABLED_KEY))
+  const music = typeof currentMusic === 'boolean' ? currentMusic : legacyMusic
+  if (typeof music === 'boolean') {
+    safeSet(target, MUSIC_ENABLED_KEY, JSON.stringify(music))
+  }
+
+  // The marker itself is app-scoped by the frame bridge. Rewriting even an
+  // already-namespaced visible value above is intentional: an older
+  // same-origin CubeRun may have left it at the shell origin, while this write
+  // establishes the app-owned physical copy before that shell import retires.
+  safeSet(target, STORAGE_MIGRATION_KEY, '1')
+}
+
 export function readHighScores(storage) {
   const target = storage ?? browserStorage()
+  migrateLegacyStorage(target)
   const namespaced = safeParseJson(safeGet(target, HIGH_SCORES_KEY))
   if (namespaced) return normalizeHighScores(namespaced)
 
@@ -73,6 +100,7 @@ export function writeHighScores(scores, storage) {
 
 export function readMusicEnabled(storage) {
   const target = storage ?? browserStorage()
+  migrateLegacyStorage(target)
   const namespaced = safeParseJson(safeGet(target, MUSIC_ENABLED_KEY))
   if (typeof namespaced === 'boolean') return namespaced
 
