@@ -15,11 +15,11 @@ import {
   writeMusicEnabled,
 } from './storage.js'
 
-function createStorage(initial = {}) {
+function createStorage(initial = {}, write = (values, key, value) => values.set(key, value)) {
   const values = new Map(Object.entries(initial))
   return {
     getItem: mock.fn((key) => values.has(key) ? values.get(key) : null),
-    setItem: mock.fn((key, value) => values.set(key, value)),
+    setItem: mock.fn((key, value) => write(values, key, value)),
   }
 }
 
@@ -96,6 +96,42 @@ describe('storage helpers', () => {
       [MUSIC_ENABLED_KEY, 'false'],
       [STORAGE_MIGRATION_KEY, '1'],
     ])
+  })
+
+  it('retries the score migration when the canonical write fails', () => {
+    let rejectScoreWrite = true
+    const storage = createStorage({
+      [LEGACY_HIGH_SCORES_KEY]: JSON.stringify([90, 60, 30]),
+    }, (values, key, value) => {
+      if (key === HIGH_SCORES_KEY && rejectScoreWrite) {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      }
+      values.set(key, value)
+    })
+
+    assert.deepEqual(readHighScores(storage), [90, 60, 30])
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), null)
+
+    rejectScoreWrite = false
+    assert.deepEqual(readHighScores(storage), [90, 60, 30])
+    assert.equal(storage.getItem(HIGH_SCORES_KEY), JSON.stringify([90, 60, 30]))
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), '1')
+  })
+
+  it('retries the music migration when the canonical write does not persist', () => {
+    let discardMusicWrite = true
+    const storage = createStorage({ [LEGACY_MUSIC_ENABLED_KEY]: 'true' }, (values, key, value) => {
+      if (key === MUSIC_ENABLED_KEY && discardMusicWrite) return
+      values.set(key, value)
+    })
+
+    assert.equal(readMusicEnabled(storage), true)
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), null)
+
+    discardMusicWrite = false
+    assert.equal(readMusicEnabled(storage), true)
+    assert.equal(storage.getItem(MUSIC_ENABLED_KEY), 'true')
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), '1')
   })
 
   it('renders with defaults when opaque-frame localStorage is unavailable', () => {

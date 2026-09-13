@@ -38,12 +38,16 @@ function browserStorage() {
   }
 }
 
-function safeGet(storage, key) {
+function tryGet(storage, key) {
   try {
-    return storage?.getItem(key) ?? null
+    return { ok: true, value: storage?.getItem(key) ?? null }
   } catch {
-    return null
+    return { ok: false, value: null }
   }
+}
+
+function safeGet(storage, key) {
+  return tryGet(storage, key).value
 }
 
 function safeSet(storage, key, value) {
@@ -55,29 +59,52 @@ function safeSet(storage, key, value) {
   }
 }
 
-export function migrateLegacyStorage(storage) {
-  const target = storage ?? browserStorage()
-  if (!target || safeGet(target, STORAGE_MIGRATION_KEY) === '1') return
-
-  const currentScores = safeParseJson(safeGet(target, HIGH_SCORES_KEY))
-  const legacyScores = safeParseJson(safeGet(target, LEGACY_HIGH_SCORES_KEY))
-  const scores = Array.isArray(currentScores) ? currentScores : legacyScores
-  if (Array.isArray(scores)) {
-    safeSet(target, HIGH_SCORES_KEY, JSON.stringify(normalizeHighScores(scores)))
+function setAndConfirm(storage, key, value) {
+  try {
+    storage?.setItem(key, value)
+  } catch {
+    return false
   }
 
-  const currentMusic = safeParseJson(safeGet(target, MUSIC_ENABLED_KEY))
-  const legacyMusic = safeParseJson(safeGet(target, LEGACY_MUSIC_ENABLED_KEY))
+  const readback = tryGet(storage, key)
+  return readback.ok && readback.value === value
+}
+
+export function migrateLegacyStorage(storage) {
+  const target = storage ?? browserStorage()
+  if (!target) return
+
+  const marker = tryGet(target, STORAGE_MIGRATION_KEY)
+  if (!marker.ok || marker.value === '1') return
+
+  const storedValues = {
+    currentScores: tryGet(target, HIGH_SCORES_KEY),
+    legacyScores: tryGet(target, LEGACY_HIGH_SCORES_KEY),
+    currentMusic: tryGet(target, MUSIC_ENABLED_KEY),
+    legacyMusic: tryGet(target, LEGACY_MUSIC_ENABLED_KEY),
+  }
+  if (Object.values(storedValues).some(({ ok }) => !ok)) return
+
+  const currentScores = safeParseJson(storedValues.currentScores.value)
+  const legacyScores = safeParseJson(storedValues.legacyScores.value)
+  const scores = Array.isArray(currentScores) ? currentScores : legacyScores
+  if (Array.isArray(scores)) {
+    const canonicalScores = JSON.stringify(normalizeHighScores(scores))
+    if (!setAndConfirm(target, HIGH_SCORES_KEY, canonicalScores)) return
+  }
+
+  const currentMusic = safeParseJson(storedValues.currentMusic.value)
+  const legacyMusic = safeParseJson(storedValues.legacyMusic.value)
   const music = typeof currentMusic === 'boolean' ? currentMusic : legacyMusic
   if (typeof music === 'boolean') {
-    safeSet(target, MUSIC_ENABLED_KEY, JSON.stringify(music))
+    if (!setAndConfirm(target, MUSIC_ENABLED_KEY, JSON.stringify(music))) return
   }
 
   // The marker itself is app-scoped by the frame bridge. Rewriting even an
   // already-namespaced visible value above is intentional: an older
   // same-origin CubeRun may have left it at the shell origin, while this write
   // establishes the app-owned physical copy before that shell import retires.
-  safeSet(target, STORAGE_MIGRATION_KEY, '1')
+  setAndConfirm(target, STORAGE_MIGRATION_KEY, '1')
 }
 
 export function readHighScores(storage) {
