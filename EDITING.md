@@ -36,9 +36,9 @@ Good first experiments:
 
 - High scores are stored through the wrapper in `window.mobius.storage` at
   `highscores.json` as `[number, number, number]`, sorted descending.
-- Standalone fallback keys are `cuberun:highscores` and
-  `cuberun:musicEnabled`. Bare `highscores` and `musicEnabled` are read only
-  for migration.
+- Standalone keys are `cuberun:highscores` and `cuberun:musicEnabled`. Bare
+  `highscores` and `musicEnabled` are copied once into those exact app-owned
+  keys when an older install first opens.
 - Game events are posted from the built game to the wrapper, which emits
   Mobius signals with flat primitive payloads.
 

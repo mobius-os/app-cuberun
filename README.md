@@ -62,7 +62,8 @@ Data contracts:
 
 * Durable high scores: `window.mobius.storage` path `highscores.json`, value
   shape `[number, number, number]` sorted descending.
-* Standalone fallback keys: `cuberun:highscores` and `cuberun:musicEnabled`.
+* Standalone keys: `cuberun:highscores` and `cuberun:musicEnabled`; the older
+  bare keys are copied into these exact app-owned keys once on first open.
   Bare legacy keys are read only for migration and corrupt values fall back to
   safe defaults.
 

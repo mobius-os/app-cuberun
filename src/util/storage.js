@@ -2,6 +2,7 @@ export const HIGH_SCORES_KEY = 'cuberun:highscores'
 export const LEGACY_HIGH_SCORES_KEY = 'highscores'
 export const MUSIC_ENABLED_KEY = 'cuberun:musicEnabled'
 export const LEGACY_MUSIC_ENABLED_KEY = 'musicEnabled'
+export const STORAGE_MIGRATION_KEY = 'cuberun:storage-migration-v1'
 
 const DEFAULT_HIGH_SCORES = [0, 0, 0]
 
@@ -37,12 +38,16 @@ function browserStorage() {
   }
 }
 
-function safeGet(storage, key) {
+function tryGet(storage, key) {
   try {
-    return storage?.getItem(key) ?? null
+    return { ok: true, value: storage?.getItem(key) ?? null }
   } catch {
-    return null
+    return { ok: false, value: null }
   }
+}
+
+function safeGet(storage, key) {
+  return tryGet(storage, key).value
 }
 
 function safeSet(storage, key, value) {
@@ -54,8 +59,57 @@ function safeSet(storage, key, value) {
   }
 }
 
+function setAndConfirm(storage, key, value) {
+  try {
+    storage?.setItem(key, value)
+  } catch {
+    return false
+  }
+
+  const readback = tryGet(storage, key)
+  return readback.ok && readback.value === value
+}
+
+export function migrateLegacyStorage(storage) {
+  const target = storage ?? browserStorage()
+  if (!target) return
+
+  const marker = tryGet(target, STORAGE_MIGRATION_KEY)
+  if (!marker.ok || marker.value === '1') return
+
+  const storedValues = {
+    currentScores: tryGet(target, HIGH_SCORES_KEY),
+    legacyScores: tryGet(target, LEGACY_HIGH_SCORES_KEY),
+    currentMusic: tryGet(target, MUSIC_ENABLED_KEY),
+    legacyMusic: tryGet(target, LEGACY_MUSIC_ENABLED_KEY),
+  }
+  if (Object.values(storedValues).some(({ ok }) => !ok)) return
+
+  const currentScores = safeParseJson(storedValues.currentScores.value)
+  const legacyScores = safeParseJson(storedValues.legacyScores.value)
+  const scores = Array.isArray(currentScores) ? currentScores : legacyScores
+  if (Array.isArray(scores)) {
+    const canonicalScores = JSON.stringify(normalizeHighScores(scores))
+    if (!setAndConfirm(target, HIGH_SCORES_KEY, canonicalScores)) return
+  }
+
+  const currentMusic = safeParseJson(storedValues.currentMusic.value)
+  const legacyMusic = safeParseJson(storedValues.legacyMusic.value)
+  const music = typeof currentMusic === 'boolean' ? currentMusic : legacyMusic
+  if (typeof music === 'boolean') {
+    if (!setAndConfirm(target, MUSIC_ENABLED_KEY, JSON.stringify(music))) return
+  }
+
+  // The marker itself is app-scoped by the frame bridge. Rewriting even an
+  // already-namespaced visible value above is intentional: an older
+  // same-origin CubeRun may have left it at the shell origin, while this write
+  // establishes the app-owned physical copy before that shell import retires.
+  setAndConfirm(target, STORAGE_MIGRATION_KEY, '1')
+}
+
 export function readHighScores(storage) {
   const target = storage ?? browserStorage()
+  migrateLegacyStorage(target)
   const namespaced = safeParseJson(safeGet(target, HIGH_SCORES_KEY))
   if (namespaced) return normalizeHighScores(namespaced)
 
@@ -73,6 +127,7 @@ export function writeHighScores(scores, storage) {
 
 export function readMusicEnabled(storage) {
   const target = storage ?? browserStorage()
+  migrateLegacyStorage(target)
   const namespaced = safeParseJson(safeGet(target, MUSIC_ENABLED_KEY))
   if (typeof namespaced === 'boolean') return namespaced
 

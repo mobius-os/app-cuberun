@@ -7,6 +7,7 @@ import {
   LEGACY_HIGH_SCORES_KEY,
   LEGACY_MUSIC_ENABLED_KEY,
   MUSIC_ENABLED_KEY,
+  STORAGE_MIGRATION_KEY,
   normalizeHighScores,
   readHighScores,
   readMusicEnabled,
@@ -14,11 +15,11 @@ import {
   writeMusicEnabled,
 } from './storage.js'
 
-function createStorage(initial = {}) {
+function createStorage(initial = {}, write = (values, key, value) => values.set(key, value)) {
   const values = new Map(Object.entries(initial))
   return {
     getItem: mock.fn((key) => values.has(key) ? values.get(key) : null),
-    setItem: mock.fn((key, value) => values.set(key, value)),
+    setItem: mock.fn((key, value) => write(values, key, value)),
   }
 }
 
@@ -34,16 +35,21 @@ describe('storage helpers', () => {
     assert.deepEqual(readHighScores(storage), [0, 0, 0])
   })
 
-  it('reads legacy high scores without writing the bare key', () => {
+  it('copies legacy high scores to the exact app-owned key once', () => {
     const storage = createStorage({
       [LEGACY_HIGH_SCORES_KEY]: JSON.stringify([100, 50, 10]),
     })
 
     assert.deepEqual(readHighScores(storage), [100, 50, 10])
+    assert.deepEqual(readHighScores(storage), [100, 50, 10])
     writeHighScores([150, 100, 50], storage)
 
     const writes = storage.setItem.mock.calls.map((call) => call.arguments)
-    assert.deepEqual(writes[0], [HIGH_SCORES_KEY, JSON.stringify([150, 100, 50])])
+    assert.deepEqual(writes, [
+      [HIGH_SCORES_KEY, JSON.stringify([100, 50, 10])],
+      [STORAGE_MIGRATION_KEY, '1'],
+      [HIGH_SCORES_KEY, JSON.stringify([150, 100, 50])],
+    ])
     assert.equal(writes.some(([key]) => key === LEGACY_HIGH_SCORES_KEY), false)
   })
 
@@ -57,16 +63,75 @@ describe('storage helpers', () => {
     writeMusicEnabled(true, storage)
 
     const writes = storage.setItem.mock.calls.map((call) => call.arguments)
-    assert.deepEqual(writes[0], [MUSIC_ENABLED_KEY, 'true'])
+    assert.deepEqual(writes, [
+      [STORAGE_MIGRATION_KEY, '1'],
+      [MUSIC_ENABLED_KEY, 'true'],
+    ])
     assert.equal(writes.some(([key]) => key === LEGACY_MUSIC_ENABLED_KEY), false)
   })
 
-  it('can read a valid legacy music setting during migration', () => {
+  it('copies a valid legacy music setting to the exact app-owned key once', () => {
     const storage = createStorage({
       [LEGACY_MUSIC_ENABLED_KEY]: 'true',
     })
 
     assert.equal(readMusicEnabled(storage), true)
+    assert.equal(readMusicEnabled(storage), true)
+    assert.deepEqual(
+      storage.setItem.mock.calls.map((call) => call.arguments),
+      [[MUSIC_ENABLED_KEY, 'true'], [STORAGE_MIGRATION_KEY, '1']],
+    )
+  })
+
+  it('rewrites visible canonical values once so the frame bridge owns a physical copy', () => {
+    const storage = createStorage({
+      [HIGH_SCORES_KEY]: JSON.stringify([30, 20, 10]),
+      [MUSIC_ENABLED_KEY]: 'false',
+    })
+
+    assert.deepEqual(readHighScores(storage), [30, 20, 10])
+    assert.equal(readMusicEnabled(storage), false)
+    assert.deepEqual(storage.setItem.mock.calls.map((call) => call.arguments), [
+      [HIGH_SCORES_KEY, JSON.stringify([30, 20, 10])],
+      [MUSIC_ENABLED_KEY, 'false'],
+      [STORAGE_MIGRATION_KEY, '1'],
+    ])
+  })
+
+  it('retries the score migration when the canonical write fails', () => {
+    let rejectScoreWrite = true
+    const storage = createStorage({
+      [LEGACY_HIGH_SCORES_KEY]: JSON.stringify([90, 60, 30]),
+    }, (values, key, value) => {
+      if (key === HIGH_SCORES_KEY && rejectScoreWrite) {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      }
+      values.set(key, value)
+    })
+
+    assert.deepEqual(readHighScores(storage), [90, 60, 30])
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), null)
+
+    rejectScoreWrite = false
+    assert.deepEqual(readHighScores(storage), [90, 60, 30])
+    assert.equal(storage.getItem(HIGH_SCORES_KEY), JSON.stringify([90, 60, 30]))
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), '1')
+  })
+
+  it('retries the music migration when the canonical write does not persist', () => {
+    let discardMusicWrite = true
+    const storage = createStorage({ [LEGACY_MUSIC_ENABLED_KEY]: 'true' }, (values, key, value) => {
+      if (key === MUSIC_ENABLED_KEY && discardMusicWrite) return
+      values.set(key, value)
+    })
+
+    assert.equal(readMusicEnabled(storage), true)
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), null)
+
+    discardMusicWrite = false
+    assert.equal(readMusicEnabled(storage), true)
+    assert.equal(storage.getItem(MUSIC_ENABLED_KEY), 'true')
+    assert.equal(storage.getItem(STORAGE_MIGRATION_KEY), '1')
   })
 
   it('renders with defaults when opaque-frame localStorage is unavailable', () => {
