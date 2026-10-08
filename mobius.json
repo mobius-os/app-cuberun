@@ -33,16 +33,11 @@
     "assets/speedup-DfjeVIc7.mp3": "build/assets/speedup-DfjeVIc7.mp3",
     "cuberun-logo.png": "build/cuberun-logo.png",
     "favicon.png": "build/favicon.png",
-    "fonts.css": "build/fonts.css",
-    "fonts/Road_Rage.otf": "build/fonts/Road_Rage.otf",
-    "fonts/commando.ttf": "build/fonts/commando.ttf",
     "index.html": "build/index.html",
     "logo192.png": "build/logo192.png",
     "logo512.png": "build/logo512.png",
     "manifest.json": "build/manifest.json",
-    "regular.PNG": "build/regular.PNG",
-    "robots.txt": "build/robots.txt",
-    "tunnelred.PNG": "build/tunnelred.PNG"
+    "robots.txt": "build/robots.txt"
   },
   "runtime": {
     "imports": [
