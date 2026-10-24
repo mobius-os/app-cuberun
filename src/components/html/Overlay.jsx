@@ -8,12 +8,14 @@ import '../../styles/gameMenu.css'
 
 import { useStore } from '../../state/useStore'
 import { postToWrapper, writeMusicEnabled } from '../../util/storage'
+import { useCoarsePointer } from '../../util/useCoarsePointer'
 
 const Overlay = () => {
   const [shown, setShown] = useState(true)
   const [opaque, setOpaque] = useState(true)
   const [hasLoaded, setHasLoaded] = useState(false)
   const { active, progress } = useProgress()
+  const coarsePointer = useCoarsePointer()
 
   const gameStarted = useStore(s => s.gameStarted)
   const gameOver = useStore(s => s.gameOver)
@@ -73,12 +75,12 @@ const Overlay = () => {
             <Loader active={active} progress={progress} />
           ) : (
             <>
-              <button onClick={handleStart} className="game__menu-button">{'STA>RT'}</button>
+              <button onClick={handleStart} className="game__menu-button" aria-label="Start">{'STA>RT'}</button>
               <div className="game__menu-options">
-                <button onClick={handleMusic} className="game__menu-button game__menu-button-music">{`TURN MUSIC ${musicEnabled ? 'OF>F' : 'O<N'}`}</button>
+                <button onClick={handleMusic} className="game__menu-button game__menu-button-music" aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}>{`TURN MUSIC ${musicEnabled ? 'OF>F' : 'O<N'}`}</button>
                 <span className="game__menu-controls">
                   <p>Controls</p>
-                  ← a / d →
+                  {coarsePointer ? 'Tap or hold left / right' : '← a / d →'}
                 </span>
                 <span className="game__menu-warning">Photosensitivity warning - Game contains flashing lights</span>
                 <Author />

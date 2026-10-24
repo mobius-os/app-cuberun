@@ -3,6 +3,8 @@ import { addEffect } from '@react-three/fiber'
 
 import { useStore, mutation } from '../../state/useStore'
 
+import { useCoarsePointer } from '../../util/useCoarsePointer'
+
 import '../../styles/hud.css'
 
 const getSpeed = () => `${(mutation.gameSpeed * 400).toFixed(0)}`
@@ -19,7 +21,8 @@ export default function Hud() {
 
   const [shown, setShown] = useState(false)
 
-  const [showControls, setShowControls] = useState(false)
+  // On-screen steering controls show whenever the primary pointer is coarse.
+  const showControls = useCoarsePointer()
   const [left, setLeftPressed] = useState(false)
   const [right, setRightPressed] = useState(false)
 
@@ -70,25 +73,6 @@ export default function Hud() {
     }
   }, [gameStarted, gameOver])
 
-  // Show on-screen steering controls whenever the device's primary pointer is
-  // coarse (touch). UA sniffing was wrong on tablets and desktop-touch and only
-  // ran once at mount; a (pointer: coarse) media query covers those cases and
-  // re-evaluates if the pointer capability changes (e.g. detachable keyboards).
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-      return
-    }
-    const mql = window.matchMedia('(pointer: coarse)')
-    const update = () => setShowControls(mql.matches)
-    update()
-    // Safari <14 only supports the deprecated addListener API.
-    if (mql.addEventListener) {
-      mql.addEventListener('change', update)
-      return () => mql.removeEventListener('change', update)
-    }
-    mql.addListener(update)
-    return () => mql.removeListener(update)
-  }, [])
 
   useEffect(() => {
     set((state) => ({ ...state, controls: { ...state.controls, left } }))
